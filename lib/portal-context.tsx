@@ -10,6 +10,15 @@ interface PortalContextValue {
   firmName: string;
   displayName: string;
   refresh: () => Promise<void>;
+  // Which client's workspace is currently open, and which tab within
+  // it — lives here (not local page state) so the sidebar can show a
+  // matching set of category shortcuts + highlight the active one
+  // without needing URL search params (which would force a Suspense
+  // boundary around the whole sidebar for every page, not just this
+  // one). Null/null when not viewing a client workspace.
+  activeClientId: string | null;
+  activeCategoryTab: string | null;
+  setActiveClientTab: (clientId: string | null, tab: string | null) => void;
 }
 
 const PortalContext = createContext<PortalContextValue | null>(null);
@@ -24,6 +33,13 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [firmName, setFirmName] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [activeClientId, setActiveClientId] = useState<string | null>(null);
+  const [activeCategoryTab, setActiveCategoryTab] = useState<string | null>(null);
+
+  const setActiveClientTab = useCallback((clientId: string | null, tab: string | null) => {
+    setActiveClientId(clientId);
+    setActiveCategoryTab(tab);
+  }, []);
 
   const refresh = useCallback(async () => {
     const { data: userData } = await supabase.auth.getUser();
@@ -47,7 +63,11 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
   }, [refresh]);
 
   return (
-    <PortalContext.Provider value={{ links, loading, firmName, displayName, refresh }}>{children}</PortalContext.Provider>
+    <PortalContext.Provider
+      value={{ links, loading, firmName, displayName, refresh, activeClientId, activeCategoryTab, setActiveClientTab }}
+    >
+      {children}
+    </PortalContext.Provider>
   );
 }
 

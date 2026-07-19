@@ -23,7 +23,9 @@ import StatusBadge from '@/components/StatusBadge';
 import SummaryCards from '@/components/SummaryCards';
 import CategoryTable from '@/components/CategoryTable';
 import SelfAssessmentSummary from '@/components/SelfAssessmentSummary';
+import PeriodSelector from '@/components/PeriodSelector';
 import { usePortal } from '@/lib/portal-context';
+import { isWithinRange, rangeForOption, type PeriodOption } from '@/lib/period';
 import {
   ACCOUNTANT_CATEGORIES,
   CATEGORY_LABELS,
@@ -54,24 +56,40 @@ const CATEGORY_BLURBS: Record<AccountantCategory, string> = {
   self_assessment: "The app's own tax estimate",
 };
 
-export default function ClientDetailPage() {
+function ClientDetailContent() {
   const params = useParams<{ linkId: string }>();
-  const { links } = usePortal();
+  const { links, activeCategoryTab, setActiveClientTab } = usePortal();
   const link = links.find((l) => l.id === params.linkId) ?? null;
+
+  const activeTab: 'overview' | AccountantCategory = (activeCategoryTab as 'overview' | AccountantCategory) ?? 'overview';
+
+  function setActiveTab(tab: 'overview' | AccountantCategory) {
+    setActiveClientTab(params.linkId, tab);
+  }
 
   const [snapshots, setSnapshots] = useState<Record<string, AccountantDataSnapshotRow>>({});
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | AccountantCategory>('overview');
+  const [period, setPeriod] = useState<PeriodOption>({ kind: 'all' });
   const loggedRef = useRef<Set<string>>(new Set());
 
   const granted = useMemo(() => (link ? grantedCategories(link) : []), [link]);
+
+  // Registers this client as "active" in the shared context so the
+  // sidebar can show its category shortcuts + mini client card —
+  // cleared on unmount so the sidebar doesn't keep showing a stale
+  // client's categories after navigating away.
+  useEffect(() => {
+    setActiveClientTab(params.linkId, 'overview');
+    return () => setActiveClientTab(null, null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.linkId]);
 
   useEffect(() => {
     if (!link) return;
     let cancelled = false;
     setLoading(true);
     setSnapshots({});
-    setActiveTab('overview');
+    setPeriod({ kind: 'all' });
     (async () => {
       const { data } = await supabase
         .from('accountant_data_snapshots')
@@ -107,8 +125,23 @@ export default function ClientDetailPage() {
     return <div className="flex h-screen items-center justify-center text-textMuted">Waiting for client approval.</div>;
   }
 
-  const txItems = (snapshots['transactions']?.payload.items as Record<string, unknown>[] | undefined) ?? null;
+  const txSnapshot = snapshots['transactions'];
+  const txItems = (txSnapshot?.payload.items as Record<string, unknown>[] | undefined) ?? null;
   const activeSnapshot = activeTab !== 'overview' ? snapshots[activeTab] : null;
+
+  // Every category syncs against the same tax-year window, so any
+  // available snapshot's period_from anchors the quarter/month split —
+  // prefer the active one, fall back to transactions for the Overview
+  // tab (which shows the summary cards, not a specific category table).
+  const referenceSnapshot = activeSnapshot ?? txSnapshot;
+  const periodRange = referenceSnapshot ? rangeForOption(period, referenceSnapshot.period_from ?? '') : null;
+
+  const filteredTxItems = txItems && periodRange ? txItems.filter((item) => isWithinRange(item.date, periodRange)) : txItems;
+  const activeSnapshotItems = (activeSnapshot?.payload.items as Record<string, unknown>[] | undefined) ?? [];
+  const filteredActiveItems =
+    periodRange && activeTab !== 'self_assessment'
+      ? activeSnapshotItems.filter((item) => isWithinRange(item.date, periodRange))
+      : activeSnapshotItems;
 
   return (
     <div className="p-8">
@@ -142,26 +175,36 @@ export default function ClientDetailPage() {
         </p>
       </Card>
 
-      <div className="mt-6 flex flex-wrap gap-2 border-b border-border pb-4">
-        <button
-          onClick={() => setActiveTab('overview')}
-          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
-            activeTab === 'overview' ? 'bg-accent text-white' : 'border border-border bg-input text-textSecondary hover:border-accentStroke'
-          }`}
-        >
-          Overview
-        </button>
-        {ACCOUNTANT_CATEGORIES.filter((c) => granted.includes(c)).map((category) => (
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+        <div className="flex flex-wrap gap-2">
           <button
-            key={category}
-            onClick={() => setActiveTab(category)}
+            onClick={() => setActiveTab('overview')}
             className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
-              activeTab === category ? 'bg-accent text-white' : 'border border-border bg-input text-textSecondary hover:border-accentStroke'
+              activeTab === 'overview' ? 'bg-accent text-white' : 'border border-border bg-input text-textSecondary hover:border-accentStroke'
             }`}
           >
-            {CATEGORY_LABELS[category]}
+            Overview
           </button>
-        ))}
+          {ACCOUNTANT_CATEGORIES.filter((c) => granted.includes(c)).map((category) => (
+            <button
+              key={category}
+              onClick={() => setActiveTab(category)}
+              className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                activeTab === category ? 'bg-accent text-white' : 'border border-border bg-input text-textSecondary hover:border-accentStroke'
+              }`}
+            >
+              {CATEGORY_LABELS[category]}
+            </button>
+          ))}
+        </div>
+        {referenceSnapshot?.period_from && referenceSnapshot?.period_to && activeTab !== 'self_assessment' && (
+          <PeriodSelector
+            periodFromIso={referenceSnapshot.period_from}
+            periodToIso={referenceSnapshot.period_to}
+            value={period}
+            onChange={setPeriod}
+          />
+        )}
       </div>
 
       <div className="mt-6">
@@ -169,7 +212,7 @@ export default function ClientDetailPage() {
           <p className="text-textMuted">Loading…</p>
         ) : activeTab === 'overview' ? (
           <>
-            <SummaryCards items={txItems} />
+            <SummaryCards items={filteredTxItems} />
             <p className="mb-3 text-sm font-bold text-textPrimary">Client workspace</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {ACCOUNTANT_CATEGORIES.filter((c) => granted.includes(c)).map((category) => {
@@ -211,14 +254,19 @@ export default function ClientDetailPage() {
               <span>Data as of: {new Date(activeSnapshot.synced_at).toLocaleString()}</span>
               {activeSnapshot.period_from && activeSnapshot.period_to && (
                 <span>
-                  Period: {activeSnapshot.period_from} → {activeSnapshot.period_to}
+                  Synced period: {activeSnapshot.period_from} → {activeSnapshot.period_to}
                 </span>
               )}
               <span>{activeSnapshot.business_only ? 'Business records only' : 'All records'}</span>
+              {period.kind !== 'all' && (
+                <span className="font-semibold text-accentLight">
+                  Showing {filteredActiveItems.length} of {activeSnapshotItems.length} records for selected period
+                </span>
+              )}
             </div>
             <CategoryTable
               category={activeTab as AccountantCategory}
-              items={(activeSnapshot.payload.items as Record<string, unknown>[]) ?? []}
+              items={filteredActiveItems}
               clientLabel={link.client_label}
               clientUserId={link.user_id}
             />
@@ -226,6 +274,9 @@ export default function ClientDetailPage() {
         )}
       </div>
     </div>
-
   );
+}
+
+export default function ClientDetailPage() {
+  return <ClientDetailContent />;
 }

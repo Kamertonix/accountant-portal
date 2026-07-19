@@ -4,11 +4,39 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Users, Mail, Settings, ChevronDown, LogOut } from 'lucide-react';
+import {
+  LayoutDashboard,
+  Users,
+  Mail,
+  Settings,
+  ChevronDown,
+  LogOut,
+  ArrowRightLeft,
+  FileText,
+  Receipt,
+  Landmark,
+  HardHat,
+  Car,
+  Calculator,
+  LayoutGrid,
+} from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { usePortal } from '@/lib/portal-context';
+import { ACCOUNTANT_CATEGORIES, CATEGORY_LABELS, grantedCategories, type AccountantCategory } from '@/lib/types';
 import Avatar from './Avatar';
+import StatusBadge from './StatusBadge';
 import PortalFooter from './PortalFooter';
+
+const CATEGORY_ICONS: Record<AccountantCategory, typeof ArrowRightLeft> = {
+  transactions: ArrowRightLeft,
+  invoices: FileText,
+  expenses: Receipt,
+  vat: Landmark,
+  cis: HardHat,
+  mileage: Car,
+  documents: FileText,
+  self_assessment: Calculator,
+};
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -18,12 +46,14 @@ const NAV_ITEMS = [
 ];
 
 export default function Sidebar() {
-  const { links, firmName, displayName } = usePortal();
+  const { links, firmName, displayName, activeClientId, activeCategoryTab, setActiveClientTab } = usePortal();
   const pathname = usePathname();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const pendingCount = links.filter((l) => l.status === 'pending' && l.accountant_id).length;
+  const activeClient = activeClientId ? links.find((l) => l.id === activeClientId) : null;
+  const activeClientCategories = activeClient ? grantedCategories(activeClient) : [];
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -39,7 +69,7 @@ export default function Sidebar() {
         <p className="mt-1.5 text-[11px] font-semibold tracking-wide text-textMuted">Accountant Portal</p>
       </div>
 
-      <nav className="flex-1 px-3 py-4">
+      <nav className="flex-1 overflow-y-auto px-3 py-4">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + '/');
           const badge = href === '/invitations' && pendingCount > 0 ? pendingCount : null;
@@ -59,6 +89,50 @@ export default function Sidebar() {
             </Link>
           );
         })}
+
+        {activeClient && (
+          <div className="mt-4 border-t border-border pt-4">
+            <Link
+              href={`/clients/${activeClient.id}`}
+              onClick={() => setActiveClientTab(activeClient.id, 'overview')}
+              className="mb-2 flex items-center gap-2.5 rounded-lg px-2 py-2 transition hover:bg-white/[0.04]"
+            >
+              <Avatar name={activeClient.client_label || '?'} size={30} />
+              <div className="min-w-0 flex-1 leading-tight">
+                <p className="truncate text-sm font-semibold text-textPrimary">{activeClient.client_label || 'Unnamed client'}</p>
+                <StatusBadge status={activeClient.status} />
+              </div>
+            </Link>
+
+            <button
+              onClick={() => setActiveClientTab(activeClient.id, 'overview')}
+              className={`mb-0.5 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                activeCategoryTab === 'overview'
+                  ? 'bg-accent/15 text-accentLight'
+                  : 'text-textSecondary hover:bg-white/[0.04] hover:text-textPrimary'
+              }`}
+            >
+              <LayoutGrid size={16} />
+              Overview
+            </button>
+            {ACCOUNTANT_CATEGORIES.filter((c) => activeClientCategories.includes(c)).map((category) => {
+              const Icon = CATEGORY_ICONS[category];
+              const active = activeCategoryTab === category;
+              return (
+                <button
+                  key={category}
+                  onClick={() => setActiveClientTab(activeClient.id, category)}
+                  className={`mb-0.5 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                    active ? 'bg-accent/15 text-accentLight' : 'text-textSecondary hover:bg-white/[0.04] hover:text-textPrimary'
+                  }`}
+                >
+                  <Icon size={16} />
+                  {CATEGORY_LABELS[category]}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </nav>
 
       <div className="relative border-t border-border p-3">

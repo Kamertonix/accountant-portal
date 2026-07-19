@@ -163,7 +163,6 @@ export default function TasksList() {
                     {task.due_date && (
                       <span className={`font-semibold ${tone === 'danger' ? 'text-danger' : tone === 'warning' ? 'text-warning' : 'text-textMuted'}`}>
                         {formatDate(task.due_date)}
-                        {tone === 'overdue' ? '' : ''}
                         {urgency(task.due_date) === 'overdue' ? ' · Overdue' : urgency(task.due_date) === 'soon' ? ' · Due soon' : ''}
                       </span>
                     )}

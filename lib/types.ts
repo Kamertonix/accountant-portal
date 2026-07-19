@@ -11,6 +11,11 @@ export const ACCOUNTANT_CATEGORIES = [
   'mileage',
   'documents',
   'self_assessment',
+  'business_profile',
+  'deadlines',
+  'tasks',
+  'mtd_report',
+  'vat_return',
 ] as const;
 
 export type AccountantCategory = (typeof ACCOUNTANT_CATEGORIES)[number];
@@ -24,6 +29,11 @@ export const CATEGORY_LABELS: Record<AccountantCategory, string> = {
   mileage: 'Mileage',
   documents: 'Documents',
   self_assessment: 'Self Assessment',
+  business_profile: 'Business Profile',
+  deadlines: 'Deadlines',
+  tasks: 'Tasks',
+  mtd_report: 'MTD Report',
+  vat_return: 'VAT Return',
 };
 
 export interface AccountantLinkRow {
@@ -41,6 +51,11 @@ export interface AccountantLinkRow {
   can_view_mileage: boolean;
   can_view_documents: boolean;
   can_view_self_assessment: boolean;
+  can_view_business_profile: boolean;
+  can_view_deadlines: boolean;
+  can_view_tasks: boolean;
+  can_view_mtd_report: boolean;
+  can_view_vat_return: boolean;
   invited_at: string;
   accepted_at: string | null;
   revoked_at: string | null;

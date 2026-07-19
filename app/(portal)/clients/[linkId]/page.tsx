@@ -15,6 +15,8 @@ import {
   Folder,
   Lock,
   Calculator,
+  UserRound,
+  ListChecks,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import Card from '@/components/Card';
@@ -22,12 +24,18 @@ import Avatar from '@/components/Avatar';
 import StatusBadge from '@/components/StatusBadge';
 import SummaryCards from '@/components/SummaryCards';
 import CategoryTable from '@/components/CategoryTable';
+import FilteredTotals from '@/components/FilteredTotals';
 import SelfAssessmentSummary from '@/components/SelfAssessmentSummary';
+import BusinessProfile from '@/components/BusinessProfile';
+import DeadlineCards from '@/components/DeadlineCards';
+import MtdReport from '@/components/MtdReport';
+import VatReturn from '@/components/VatReturn';
+import InvoicesCard from '@/components/InvoicesCard';
 import PeriodSelector from '@/components/PeriodSelector';
 import { usePortal } from '@/lib/portal-context';
 import { isWithinRange, rangeForOption, type PeriodOption } from '@/lib/period';
+import { taxYearLabel } from '@/lib/download';
 import {
-  ACCOUNTANT_CATEGORIES,
   CATEGORY_LABELS,
   grantedCategories,
   type AccountantCategory,
@@ -43,10 +51,28 @@ const CATEGORY_ICONS: Record<AccountantCategory, typeof ArrowRightLeft> = {
   mileage: Car,
   documents: Folder,
   self_assessment: Calculator,
+  business_profile: UserRound,
+  deadlines: Calculator,
+  tasks: ListChecks,
+  mtd_report: Landmark,
+  vat_return: Landmark,
 };
 
+const VISIBLE_TABS: AccountantCategory[] = [
+  'transactions',
+  'invoices',
+  'mileage',
+  'self_assessment',
+  'business_profile',
+  'deadlines',
+  'mtd_report',
+  'vat_return',
+];
+
+type TypeFilter = 'all' | 'Income' | 'Expense' | 'vat' | 'cis';
+
 const CATEGORY_BLURBS: Record<AccountantCategory, string> = {
-  transactions: 'All income and expenses',
+  transactions: 'Income, expenses, VAT and CIS — filterable',
   invoices: 'Issued invoices and their status',
   expenses: 'Recorded business expenses',
   vat: 'VAT-flagged records',
@@ -54,11 +80,16 @@ const CATEGORY_BLURBS: Record<AccountantCategory, string> = {
   mileage: 'Business mileage log',
   documents: 'Organizer documents (not yet synced)',
   self_assessment: "The app's own tax estimate",
+  business_profile: 'Name, address, UTR, NINO, VAT/CIS status',
+  deadlines: 'Upcoming HMRC deadlines',
+  tasks: "Client's organizer task list",
+  mtd_report: "The app's own MTD quarterly report",
+  vat_return: "The app's own 9-box VAT return",
 };
 
 function ClientDetailContent() {
   const params = useParams<{ linkId: string }>();
-  const { links, activeCategoryTab, setActiveClientTab } = usePortal();
+  const { links, activeCategoryTab, setActiveClientTab, pendingTypeFilter, pendingPeriod, setPendingFilter } = usePortal();
   const link = links.find((l) => l.id === params.linkId) ?? null;
 
   const activeTab: 'overview' | AccountantCategory = (activeCategoryTab as 'overview' | AccountantCategory) ?? 'overview';
@@ -69,8 +100,22 @@ function ClientDetailContent() {
 
   const [snapshots, setSnapshots] = useState<Record<string, AccountantDataSnapshotRow>>({});
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [period, setPeriod] = useState<PeriodOption>({ kind: 'all' });
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const loggedRef = useRef<Set<string>>(new Set());
+
+  // A sidebar shortcut (VAT Return / MTD Report) sets a one-shot
+  // "pending" filter in the shared context right before switching to
+  // this tab — apply it once, then clear it, so it doesn't keep
+  // overriding the user's own filter choices afterwards.
+  useEffect(() => {
+    if (activeCategoryTab !== 'transactions') return;
+    if (pendingTypeFilter === null && pendingPeriod === null) return;
+    if (pendingTypeFilter !== null) setTypeFilter(pendingTypeFilter);
+    if (pendingPeriod !== null) setPeriod(pendingPeriod);
+    setPendingFilter(null, null);
+  }, [activeCategoryTab, pendingTypeFilter, pendingPeriod, setPendingFilter]);
 
   const granted = useMemo(() => (link ? grantedCategories(link) : []), [link]);
 
@@ -89,14 +134,22 @@ function ClientDetailContent() {
     let cancelled = false;
     setLoading(true);
     setSnapshots({});
+    setFetchError(null);
     setPeriod({ kind: 'all' });
+    setTypeFilter('all');
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('accountant_data_snapshots')
         .select('*')
         .eq('user_id', link.user_id)
         .in('category', granted.length > 0 ? granted : ['__none__']);
       if (cancelled) return;
+      if (error) {
+        console.error('Error loading snapshots:', error);
+        setFetchError(error.message);
+        setLoading(false);
+        return;
+      }
       const map: Record<string, AccountantDataSnapshotRow> = {};
       for (const row of (data as AccountantDataSnapshotRow[]) ?? []) map[row.category] = row;
       setSnapshots(map);
@@ -134,14 +187,25 @@ function ClientDetailContent() {
   // prefer the active one, fall back to transactions for the Overview
   // tab (which shows the summary cards, not a specific category table).
   const referenceSnapshot = activeSnapshot ?? txSnapshot;
+  const currentTaxYear = taxYearLabel(referenceSnapshot?.period_from);
   const periodRange = referenceSnapshot ? rangeForOption(period, referenceSnapshot.period_from ?? '') : null;
 
   const filteredTxItems = txItems && periodRange ? txItems.filter((item) => isWithinRange(item.date, periodRange)) : txItems;
   const activeSnapshotItems = (activeSnapshot?.payload.items as Record<string, unknown>[] | undefined) ?? [];
   const filteredActiveItems =
-    periodRange && activeTab !== 'self_assessment'
+    periodRange && activeTab !== 'self_assessment' && activeTab !== 'business_profile' && activeTab !== 'tasks' && activeTab !== 'deadlines' && activeTab !== 'mtd_report' && activeTab !== 'vat_return'
       ? activeSnapshotItems.filter((item) => isWithinRange(item.date, periodRange))
       : activeSnapshotItems;
+
+  const displayedItems =
+    activeTab === 'transactions' && typeFilter !== 'all'
+      ? filteredActiveItems.filter((item) => {
+          if (typeFilter === 'Income' || typeFilter === 'Expense') return item.type === typeFilter;
+          if (typeFilter === 'vat') return item.vat === true;
+          if (typeFilter === 'cis') return item.cis === true;
+          return true;
+        })
+      : filteredActiveItems;
 
   return (
     <div className="p-8">
@@ -158,6 +222,12 @@ function ClientDetailContent() {
               <StatusBadge status={link.status} />
               <span>
                 Client since {link.accepted_at ? new Date(link.accepted_at).toLocaleDateString() : '—'}
+              </span>
+              <span>
+                &middot; Last sync:{' '}
+                {Object.values(snapshots).length > 0
+                  ? new Date(Math.max(...Object.values(snapshots).map((s) => new Date(s.synced_at).getTime()))).toLocaleString()
+                  : 'Never'}
               </span>
             </div>
           </div>
@@ -185,7 +255,7 @@ function ClientDetailContent() {
           >
             Overview
           </button>
-          {ACCOUNTANT_CATEGORIES.filter((c) => granted.includes(c)).map((category) => (
+          {VISIBLE_TABS.filter((c) => granted.includes(c)).map((category) => (
             <button
               key={category}
               onClick={() => setActiveTab(category)}
@@ -197,7 +267,7 @@ function ClientDetailContent() {
             </button>
           ))}
         </div>
-        {referenceSnapshot?.period_from && referenceSnapshot?.period_to && activeTab !== 'self_assessment' && (
+        {referenceSnapshot?.period_from && referenceSnapshot?.period_to && activeTab !== 'self_assessment' && activeTab !== 'business_profile' && activeTab !== 'tasks' && activeTab !== 'deadlines' && activeTab !== 'mtd_report' && activeTab !== 'vat_return' && (
           <PeriodSelector
             periodFromIso={referenceSnapshot.period_from}
             periodToIso={referenceSnapshot.period_to}
@@ -210,32 +280,13 @@ function ClientDetailContent() {
       <div className="mt-6">
         {loading ? (
           <p className="text-textMuted">Loading…</p>
+        ) : fetchError ? (
+          <Card tone="danger">
+            <p className="text-sm font-semibold text-danger">Could not load data</p>
+            <p className="mt-1 text-xs text-textMuted">{fetchError}</p>
+          </Card>
         ) : activeTab === 'overview' ? (
-          <>
-            <SummaryCards items={filteredTxItems} />
-            <p className="mb-3 text-sm font-bold text-textPrimary">Client workspace</p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {ACCOUNTANT_CATEGORIES.filter((c) => granted.includes(c)).map((category) => {
-                const Icon = CATEGORY_ICONS[category];
-                const synced = Boolean(snapshots[category]);
-                return (
-                  <button key={category} onClick={() => setActiveTab(category)} className="text-left">
-                    <Card className="h-full transition hover:-translate-y-0.5 hover:border-accentStroke">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/15 text-accentLight">
-                        <Icon size={18} />
-                      </div>
-                      <p className="mt-3 font-semibold text-textPrimary">{CATEGORY_LABELS[category]}</p>
-                      <p className="mt-0.5 text-xs text-textMuted">{CATEGORY_BLURBS[category]}</p>
-                      <div className="mt-3 flex items-center justify-between text-xs">
-                        <span className="text-textMuted">{synced ? 'Read only' : 'Not synced yet'}</span>
-                        <span className="font-semibold text-accentLight">View →</span>
-                      </div>
-                    </Card>
-                  </button>
-                );
-              })}
-            </div>
-          </>
+          <SummaryCards items={filteredTxItems} />
         ) : !activeSnapshot ? (
           <Card tone="warning">
             <p className="text-sm text-textSecondary">
@@ -248,8 +299,127 @@ function ClientDetailContent() {
             summary={(activeSnapshot.payload.summary as Record<string, unknown>) ?? {}}
             syncedAt={activeSnapshot.synced_at}
           />
+        ) : activeTab === 'business_profile' ? (
+          <BusinessProfile profile={(activeSnapshot.payload.profile as Record<string, unknown>) ?? {}} syncedAt={activeSnapshot.synced_at} />
+        ) : activeTab === 'deadlines' ? (
+          <DeadlineCards
+            items={
+              (activeSnapshot.payload.items as unknown as {
+                key: string;
+                typeKey: string;
+                title: string;
+                description: string;
+                deadline: string;
+                daysRemaining: number;
+              }[]) ?? []
+            }
+          />
+        ) : activeTab === 'mtd_report' ? (
+          <MtdReport
+            quarters={
+              (activeSnapshot.payload.quarters as unknown as {
+                taxYear: string;
+                quarter: string;
+                periodLabel: string;
+                income: number;
+                expenses: number;
+                profitLoss: number;
+                transactionCount: number;
+                invoiceCount: number;
+                breakdown: {
+                  invoiceIncome: number;
+                  transactionIncome: number;
+                  manualIncome: number;
+                  transactionExpenses: number;
+                  manualExpenses: number;
+                  vehicleExpensesExcluded: number;
+                  mileage: number;
+                  mileageTrips: number;
+                  mileageEnabled: boolean;
+                };
+              }[]) ?? []
+            }
+          />
+        ) : activeTab === 'vat_return' ? (
+          <VatReturn
+            period={String(activeSnapshot.payload.period ?? '')}
+            boxes={
+              (activeSnapshot.payload.boxes as unknown as {
+                box1: number;
+                box2: number;
+                box3: number;
+                box4: number;
+                box5: number;
+                box6: number;
+                box7: number;
+                box8: number;
+                box9: number;
+              }) ?? { box1: 0, box2: 0, box3: 0, box4: 0, box5: 0, box6: 0, box7: 0, box8: 0, box9: 0 }
+            }
+          />
+        ) : activeTab === 'invoices' ? (
+          <InvoicesCard
+            items={
+              displayedItems as unknown as {
+                id?: string;
+                number: string;
+                client: string;
+                date: string;
+                dueDate: string;
+                status: string;
+                netAmount: number;
+                vatAmount: number;
+                cisAmount: number;
+                paidAmount: number;
+              }[]
+            }
+            clientUserId={link.user_id}
+            clientLabel={link.client_label}
+            issuer={(snapshots['business_profile']?.payload.profile as Record<string, unknown>) ?? null}
+            taxYear={currentTaxYear}
+          />
         ) : (
           <>
+            {activeTab === 'transactions' && Number(activeSnapshot.payload.reviewCount ?? 0) > 0 && (
+              <Card tone="warning" className="mb-4">
+                <p className="text-sm text-textSecondary">
+                  <span className="font-bold text-warning">{Number(activeSnapshot.payload.reviewCount)}</span> transaction
+                  {Number(activeSnapshot.payload.reviewCount) === 1 ? '' : 's'} awaiting classification (Business/Personal) by
+                  your client — not shown here until they&rsquo;re classified, since they might turn out to be personal.
+                </p>
+              </Card>
+            )}
+            {activeTab === 'transactions' && (
+              <div className="mb-4 flex flex-wrap gap-2">
+                {(
+                  [
+                    { key: 'all', label: 'All' },
+                    { key: 'Income', label: 'Income' },
+                    { key: 'Expense', label: 'Expense' },
+                    ...(link.can_view_vat ? [{ key: 'vat', label: 'VAT' } as const] : []),
+                    ...(link.can_view_cis ? [{ key: 'cis', label: 'CIS' } as const] : []),
+                  ] as { key: TypeFilter; label: string }[]
+                ).map((opt) => (
+                  <button
+                    key={opt.key}
+                    onClick={() => setTypeFilter(opt.key)}
+                    className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+                      typeFilter === opt.key
+                        ? 'bg-accent text-white'
+                        : 'border border-border bg-input text-textSecondary hover:border-accentStroke'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {activeTab === 'transactions' && (
+              <FilteredTotals
+                items={displayedItems}
+                label={typeFilter === 'all' ? 'All transactions' : typeFilter === 'vat' ? 'VAT' : typeFilter === 'cis' ? 'CIS' : typeFilter}
+              />
+            )}
             <div className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-textMuted">
               <span>Data as of: {new Date(activeSnapshot.synced_at).toLocaleString()}</span>
               {activeSnapshot.period_from && activeSnapshot.period_to && (
@@ -258,17 +428,18 @@ function ClientDetailContent() {
                 </span>
               )}
               <span>{activeSnapshot.business_only ? 'Business records only' : 'All records'}</span>
-              {period.kind !== 'all' && (
+              {(period.kind !== 'all' || typeFilter !== 'all') && (
                 <span className="font-semibold text-accentLight">
-                  Showing {filteredActiveItems.length} of {activeSnapshotItems.length} records for selected period
+                  Showing {displayedItems.length} of {activeSnapshotItems.length} records
                 </span>
               )}
             </div>
             <CategoryTable
               category={activeTab as AccountantCategory}
-              items={filteredActiveItems}
+              items={displayedItems}
               clientLabel={link.client_label}
               clientUserId={link.user_id}
+              taxYear={currentTaxYear}
             />
           </>
         )}

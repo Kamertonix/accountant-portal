@@ -3,12 +3,17 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { AccountantLinkRow } from '@/lib/types';
+import type { PeriodOption } from '@/lib/period';
 
 interface PortalContextValue {
   links: AccountantLinkRow[];
   loading: boolean;
   firmName: string;
   displayName: string;
+  firmAddress: string;
+  firmPhone: string;
+  firmWebsite: string;
+  professionalBody: string;
   refresh: () => Promise<void>;
   // Which client's workspace is currently open, and which tab within
   // it — lives here (not local page state) so the sidebar can show a
@@ -19,6 +24,14 @@ interface PortalContextValue {
   activeClientId: string | null;
   activeCategoryTab: string | null;
   setActiveClientTab: (clientId: string | null, tab: string | null) => void;
+  // A shortcut (e.g. sidebar's "VAT Return"/"MTD Report") sets this
+  // right before switching the active tab to 'transactions', so the
+  // workspace page can apply it once and clear it — a one-shot signal,
+  // not persistent state, since the user is free to change filters
+  // afterwards.
+  pendingTypeFilter: 'all' | 'Income' | 'Expense' | 'vat' | 'cis' | null;
+  pendingPeriod: PeriodOption | null;
+  setPendingFilter: (typeFilter: 'all' | 'Income' | 'Expense' | 'vat' | 'cis' | null, period: PeriodOption | null) => void;
 }
 
 const PortalContext = createContext<PortalContextValue | null>(null);
@@ -33,13 +46,27 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [firmName, setFirmName] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [firmAddress, setFirmAddress] = useState('');
+  const [firmPhone, setFirmPhone] = useState('');
+  const [firmWebsite, setFirmWebsite] = useState('');
+  const [professionalBody, setProfessionalBody] = useState('');
   const [activeClientId, setActiveClientId] = useState<string | null>(null);
   const [activeCategoryTab, setActiveCategoryTab] = useState<string | null>(null);
+  const [pendingTypeFilter, setPendingTypeFilter] = useState<'all' | 'Income' | 'Expense' | 'vat' | 'cis' | null>(null);
+  const [pendingPeriod, setPendingPeriod] = useState<PeriodOption | null>(null);
 
   const setActiveClientTab = useCallback((clientId: string | null, tab: string | null) => {
     setActiveClientId(clientId);
     setActiveCategoryTab(tab);
   }, []);
+
+  const setPendingFilter = useCallback(
+    (typeFilter: 'all' | 'Income' | 'Expense' | 'vat' | 'cis' | null, period: PeriodOption | null) => {
+      setPendingTypeFilter(typeFilter);
+      setPendingPeriod(period);
+    },
+    [],
+  );
 
   const refresh = useCallback(async () => {
     const { data: userData } = await supabase.auth.getUser();
@@ -49,11 +76,19 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     const [{ data: profile }, { data: rows }] = await Promise.all([
-      supabase.from('accountant_profiles').select('display_name, firm_name').eq('user_id', userId).maybeSingle(),
+      supabase
+        .from('accountant_profiles')
+        .select('display_name, firm_name, firm_address, firm_phone, firm_website, professional_body')
+        .eq('user_id', userId)
+        .maybeSingle(),
       supabase.from('accountant_links').select('*').eq('accountant_id', userId).order('updated_at', { ascending: false }),
     ]);
     setFirmName(profile?.firm_name ?? '');
     setDisplayName(profile?.display_name ?? '');
+    setFirmAddress(profile?.firm_address ?? '');
+    setFirmPhone(profile?.firm_phone ?? '');
+    setFirmWebsite(profile?.firm_website ?? '');
+    setProfessionalBody(profile?.professional_body ?? '');
     setLinks((rows as AccountantLinkRow[]) ?? []);
     setLoading(false);
   }, []);
@@ -64,7 +99,23 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <PortalContext.Provider
-      value={{ links, loading, firmName, displayName, refresh, activeClientId, activeCategoryTab, setActiveClientTab }}
+      value={{
+        links,
+        loading,
+        firmName,
+        displayName,
+        firmAddress,
+        firmPhone,
+        firmWebsite,
+        professionalBody,
+        refresh,
+        activeClientId,
+        activeCategoryTab,
+        setActiveClientTab,
+        pendingTypeFilter,
+        pendingPeriod,
+        setPendingFilter,
+      }}
     >
       {children}
     </PortalContext.Provider>

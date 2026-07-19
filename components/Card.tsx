@@ -3,11 +3,13 @@ export default function Card({
   className = '',
   tone = 'default',
   padded = true,
+  onClick,
 }: {
   children: React.ReactNode;
   className?: string;
   tone?: 'default' | 'accent' | 'success' | 'warning' | 'danger';
   padded?: boolean;
+  onClick?: () => void;
 }) {
   const border = {
     default: 'border-border',
@@ -18,7 +20,7 @@ export default function Card({
   }[tone];
 
   return (
-    <div className={`rounded-card border ${border} bg-cardSoft ${padded ? 'p-5' : ''} shadow-lg shadow-black/30 ${className}`}>
+    <div onClick={onClick} className={`rounded-card border ${border} bg-cardSoft ${padded ? 'p-5' : ''} shadow-lg shadow-black/30 ${className}`}>
       {children}
     </div>
   );

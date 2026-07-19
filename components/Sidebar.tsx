@@ -19,10 +19,12 @@ import {
   Car,
   Calculator,
   LayoutGrid,
+  UserRound,
+  ListChecks,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { usePortal } from '@/lib/portal-context';
-import { ACCOUNTANT_CATEGORIES, CATEGORY_LABELS, grantedCategories, type AccountantCategory } from '@/lib/types';
+import { CATEGORY_LABELS, grantedCategories, type AccountantCategory } from '@/lib/types';
 import Avatar from './Avatar';
 import StatusBadge from './StatusBadge';
 import PortalFooter from './PortalFooter';
@@ -36,11 +38,31 @@ const CATEGORY_ICONS: Record<AccountantCategory, typeof ArrowRightLeft> = {
   mileage: Car,
   documents: FileText,
   self_assessment: Calculator,
+  business_profile: UserRound,
+  deadlines: Calculator,
+  tasks: ListChecks,
+  mtd_report: Landmark,
+  vat_return: Landmark,
 };
+
+// Same reasoning as the client workspace page — expenses/VAT/CIS are
+// filtered views of Transactions, not separate tabs. Deadlines aren't
+// a tab at all — they're shown as cards right on Overview.
+const VISIBLE_TABS: AccountantCategory[] = [
+  'transactions',
+  'invoices',
+  'mileage',
+  'self_assessment',
+  'business_profile',
+  'deadlines',
+  'mtd_report',
+  'vat_return',
+];
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/clients', label: 'Clients', icon: Users },
+  { href: '/tasks', label: 'Tasks', icon: ListChecks },
   { href: '/invitations', label: 'Invitations', icon: Mail },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
@@ -115,7 +137,7 @@ export default function Sidebar() {
               <LayoutGrid size={16} />
               Overview
             </button>
-            {ACCOUNTANT_CATEGORIES.filter((c) => activeClientCategories.includes(c)).map((category) => {
+            {VISIBLE_TABS.filter((c) => activeClientCategories.includes(c)).map((category) => {
               const Icon = CATEGORY_ICONS[category];
               const active = activeCategoryTab === category;
               return (

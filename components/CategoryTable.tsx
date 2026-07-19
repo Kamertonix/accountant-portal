@@ -3,7 +3,8 @@
 import { useMemo, useState } from 'react';
 import { Download } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import type { AccountantCategory } from '@/lib/types';
+import { exportPath, downloadBlob } from '@/lib/download';
+import { CATEGORY_LABELS, type AccountantCategory } from '@/lib/types';
 
 interface Column {
   key: string;
@@ -104,6 +105,11 @@ const COLUMN_DEFS: Record<AccountantCategory, Column[]> = {
   ],
   documents: [],
   self_assessment: [],
+  business_profile: [],
+  deadlines: [],
+  tasks: [],
+  mtd_report: [],
+  vat_return: [],
 };
 
 function toCsv(columns: Column[], rows: Record<string, unknown>[]): string {
@@ -116,7 +122,17 @@ function toCsv(columns: Column[], rows: Record<string, unknown>[]): string {
   return [header, ...lines].join('\n');
 }
 
-function PdfDownloadButton({ clientUserId, invoiceId }: { clientUserId: string; invoiceId: string }) {
+function PdfDownloadButton({
+  clientUserId,
+  invoiceId,
+  clientLabel,
+  taxYear,
+}: {
+  clientUserId: string;
+  invoiceId: string;
+  clientLabel: string;
+  taxYear: string;
+}) {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
 
@@ -127,12 +143,7 @@ function PdfDownloadButton({ clientUserId, invoiceId }: { clientUserId: string; 
       const path = `${clientUserId}/${invoiceId}.pdf`;
       const { data, error } = await supabase.storage.from('accountant-invoices').download(path);
       if (error || !data) throw error ?? new Error('No file');
-      const url = URL.createObjectURL(data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `invoice-${invoiceId}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+      downloadBlob(data, exportPath(clientLabel, taxYear, 'Invoices', `invoice-${invoiceId}.pdf`));
     } catch {
       setFailed(true);
     } finally {
@@ -158,11 +169,13 @@ export default function CategoryTable({
   items,
   clientLabel,
   clientUserId,
+  taxYear,
 }: {
   category: AccountantCategory;
   items: Record<string, unknown>[];
   clientLabel: string;
   clientUserId: string;
+  taxYear: string;
 }) {
   const columns = COLUMN_DEFS[category];
   const [query, setQuery] = useState('');
@@ -209,12 +222,8 @@ export default function CategoryTable({
     const csvColumns = columns.filter((c) => !c.pdfButton);
     const csv = toCsv(csvColumns, sorted);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${clientLabel || 'client'}-${category}.csv`.replace(/\s+/g, '-').toLowerCase();
-    a.click();
-    URL.revokeObjectURL(url);
+    const filename = `${category}.csv`.toLowerCase();
+    downloadBlob(blob, exportPath(clientLabel, taxYear, CATEGORY_LABELS[category], filename));
   }
 
   if (items.length === 0) {
@@ -264,7 +273,12 @@ export default function CategoryTable({
                   if (c.pdfButton) {
                     return (
                       <td key={c.key} className="whitespace-nowrap px-4 py-2.5">
-                        <PdfDownloadButton clientUserId={clientUserId} invoiceId={String(row.id ?? '')} />
+                        <PdfDownloadButton
+                          clientUserId={clientUserId}
+                          invoiceId={String(row.id ?? '')}
+                          clientLabel={clientLabel}
+                          taxYear={taxYear}
+                        />
                       </td>
                     );
                   }

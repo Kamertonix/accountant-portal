@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import AuthGuard from '@/components/AuthGuard';
 import Card from '@/components/Card';
+import PortalFooter from '@/components/PortalFooter';
 
 function RedeemForm() {
   const router = useRouter();
@@ -33,7 +34,7 @@ function RedeemForm() {
 
   if (done) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-4">
+      <div className="flex min-h-screen flex-col items-center justify-center px-4 py-10">
         <Card className="w-full max-w-sm text-center" tone="success">
           <h1 className="text-xl font-bold text-textPrimary">Code accepted</h1>
           <p className="mt-2 text-sm text-textSecondary">
@@ -47,12 +48,13 @@ function RedeemForm() {
             Go to dashboard
           </button>
         </Card>
+        <PortalFooter />
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
+    <div className="flex min-h-screen flex-col items-center justify-center px-4 py-10">
       <Card className="w-full max-w-sm" tone="accent">
         <h1 className="text-xl font-bold text-textPrimary">Connect a client</h1>
         <p className="mt-1 text-sm text-textSecondary">
@@ -80,6 +82,7 @@ function RedeemForm() {
           </button>
         </form>
       </Card>
+      <PortalFooter />
     </div>
   );
 }

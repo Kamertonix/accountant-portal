@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { LayoutDashboard, Users, Mail, Settings, ChevronDown, LogOut } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { usePortal } from '@/lib/portal-context';
 import Avatar from './Avatar';
+import PortalFooter from './PortalFooter';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -30,14 +32,11 @@ export default function Sidebar() {
 
   return (
     <aside className="flex h-screen w-64 shrink-0 flex-col border-r border-border bg-surface">
-      <div className="flex items-center gap-2.5 border-b border-border px-5 py-4">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/15 text-sm font-black text-accentLight">
-          TS
-        </div>
-        <div className="leading-tight">
-          <p className="text-sm font-bold text-textPrimary">Tax Sole Trader</p>
-          <p className="text-[11px] text-textMuted">Accountant Portal</p>
-        </div>
+      <div className="border-b border-border px-5 py-5">
+        <Link href="/dashboard">
+          <Image src="/logo-header.png" alt="Tax Sole Trader" width={420} height={110} priority className="h-auto w-[170px]" />
+        </Link>
+        <p className="mt-1.5 text-[11px] font-semibold tracking-wide text-textMuted">Accountant Portal</p>
       </div>
 
       <nav className="flex-1 px-3 py-4">
@@ -82,6 +81,7 @@ export default function Sidebar() {
           </div>
           <ChevronDown size={16} className={`shrink-0 text-textMuted transition ${menuOpen ? 'rotate-180' : ''}`} />
         </button>
+        <PortalFooter compact />
       </div>
     </aside>
   );

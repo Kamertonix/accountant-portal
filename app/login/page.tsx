@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Card from '@/components/Card';
+import PortalFooter from '@/components/PortalFooter';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -46,10 +48,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
+    <div className="flex min-h-screen flex-col items-center justify-center px-4 py-10">
       <Card className="w-full max-w-sm" tone="accent">
-        <h1 className="text-xl font-bold text-textPrimary">Accountant Portal</h1>
-        <p className="mt-1 text-sm text-textSecondary">Tax Sole Trader — read-only client access</p>
+        <Image src="/logo-header.png" alt="Tax Sole Trader" width={420} height={110} priority className="h-auto w-[200px]" />
+        <p className="mt-3 text-sm text-textSecondary">Accountant Portal — read-only client access</p>
 
         <div className="mt-6 flex rounded-xl border border-border bg-input p-1 text-sm font-semibold">
           <button
@@ -107,6 +109,7 @@ export default function LoginPage() {
           This portal is for accountants invited by a Tax Sole Trader client. If you&rsquo;re a client of the app itself, use the app instead.
         </p>
       </Card>
+      <PortalFooter />
     </div>
   );
 }

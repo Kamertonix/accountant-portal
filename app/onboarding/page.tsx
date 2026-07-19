@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import AuthGuard from '@/components/AuthGuard';
 import Card from '@/components/Card';
+import PortalFooter from '@/components/PortalFooter';
 
 function OnboardingForm() {
   const router = useRouter();
@@ -59,8 +61,9 @@ function OnboardingForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
+    <div className="flex min-h-screen flex-col items-center justify-center px-4 py-10">
       <Card className="w-full max-w-sm" tone="accent">
+        <Image src="/logo-header.png" alt="Tax Sole Trader" width={420} height={110} className="mb-4 h-auto w-[160px]" />
         <h1 className="text-xl font-bold text-textPrimary">Set up your profile</h1>
         <p className="mt-1 text-sm text-textSecondary">
           This is what your clients see when deciding whether to approve your access.
@@ -98,6 +101,7 @@ function OnboardingForm() {
           </button>
         </form>
       </Card>
+      <PortalFooter />
     </div>
   );
 }

@@ -342,19 +342,21 @@ function ClientDetailContent() {
           />
         ) : activeTab === 'vat_return' ? (
           <VatReturn
-            period={String(activeSnapshot.payload.period ?? '')}
-            boxes={
-              (activeSnapshot.payload.boxes as unknown as {
-                box1: number;
-                box2: number;
-                box3: number;
-                box4: number;
-                box5: number;
-                box6: number;
-                box7: number;
-                box8: number;
-                box9: number;
-              }) ?? { box1: 0, box2: 0, box3: 0, box4: 0, box5: 0, box6: 0, box7: 0, box8: 0, box9: 0 }
+            periods={
+              (activeSnapshot.payload.periods as unknown as {
+                period: string;
+                boxes: {
+                  box1: number;
+                  box2: number;
+                  box3: number;
+                  box4: number;
+                  box5: number;
+                  box6: number;
+                  box7: number;
+                  box8: number;
+                  box9: number;
+                };
+              }[]) ?? []
             }
           />
         ) : activeTab === 'invoices' ? (

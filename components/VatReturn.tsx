@@ -1,3 +1,6 @@
+'use client';
+
+import { useState } from 'react';
 import Card from './Card';
 
 interface VatBoxes {
@@ -10,6 +13,11 @@ interface VatBoxes {
   box7: number;
   box8: number;
   box9: number;
+}
+
+interface PeriodReport {
+  period: string;
+  boxes: VatBoxes;
 }
 
 function money(n: number): string {
@@ -31,17 +39,44 @@ const BOX_DEFS: { key: keyof VatBoxes; title: string; subtitle: string }[] = [
 ];
 
 /// Mirrors the app's own VAT Return screen (vat_return_screen.dart)
-/// exactly — same nine boxes, same official wording, same summary
-/// line. Every number comes from TaxSummaryService.calculateVatBoxes()
-/// as it already ran on the client's device; nothing recalculated here.
-export default function VatReturn({ period, boxes }: { period: string; boxes: VatBoxes }) {
+/// exactly — same period list (generated the same way, depending on
+/// the client's VAT frequency/quarter-start settings), same nine
+/// boxes, same official wording. Every number comes from
+/// TaxSummaryService.calculateVatBoxes() as it already ran on the
+/// client's device; nothing recalculated here.
+export default function VatReturn({ periods }: { periods: PeriodReport[] }) {
+  const [selected, setSelected] = useState(periods[0]?.period ?? '');
+  const report = periods.find((p) => p.period === selected) ?? periods[0];
+
+  if (!report) {
+    return <p className="py-8 text-center text-sm text-textMuted">No VAT return data synced.</p>;
+  }
+
+  const { boxes } = report;
   const payable = boxes.box3 >= boxes.box4;
 
   return (
     <div>
+      <div className="mb-4">
+        <label className="text-xs font-semibold text-textMuted">
+          Period
+          <select
+            value={selected}
+            onChange={(e) => setSelected(e.target.value)}
+            className="mt-1 block w-full max-w-xs rounded-lg border border-border bg-input px-3 py-2 text-sm font-semibold text-textPrimary outline-none focus:border-accentStroke"
+          >
+            {periods.map((p) => (
+              <option key={p.period} value={p.period}>
+                {p.period}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
       <Card tone="accent" className="mb-4 max-w-md">
         <p className="text-xs text-textMuted">Period</p>
-        <p className="text-lg font-bold text-textPrimary">{period}</p>
+        <p className="text-lg font-bold text-textPrimary">{report.period}</p>
         <div className="my-2 h-px bg-border" />
         <p className="text-xs font-semibold uppercase tracking-wide text-textMuted">
           {payable ? 'Net VAT payable' : 'Net VAT reclaimable'}

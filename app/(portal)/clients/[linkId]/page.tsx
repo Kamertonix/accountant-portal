@@ -34,7 +34,7 @@ import VatStatement from '@/components/VatStatement';
 import InvoicesCard from '@/components/InvoicesCard';
 import PeriodSelector from '@/components/PeriodSelector';
 import { usePortal } from '@/lib/portal-context';
-import { isWithinRange, rangeForOption, type PeriodOption } from '@/lib/period';
+import { isWithinRange, rangeForOption, currentQuarterOption, currentTaxYearStartIso, type PeriodOption } from '@/lib/period';
 import { taxYearLabel } from '@/lib/download';
 import {
   CATEGORY_LABELS,
@@ -105,7 +105,7 @@ function ClientDetailContent() {
   const [snapshots, setSnapshots] = useState<Record<string, AccountantDataSnapshotRow>>({});
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [period, setPeriod] = useState<PeriodOption>({ kind: 'all' });
+  const [period, setPeriod] = useState<PeriodOption>(() => currentQuarterOption(currentTaxYearStartIso()));
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const loggedRef = useRef<Set<string>>(new Set());
 
@@ -139,7 +139,7 @@ function ClientDetailContent() {
     setLoading(true);
     setSnapshots({});
     setFetchError(null);
-    setPeriod({ kind: 'all' });
+    setPeriod(currentQuarterOption(currentTaxYearStartIso()));
     setTypeFilter('all');
     (async () => {
       const { data, error } = await supabase

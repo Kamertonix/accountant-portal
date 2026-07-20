@@ -68,7 +68,9 @@ export default function VatReturn({
   clientLabel: string;
   taxYear: string;
 }) {
-  const [selected, setSelected] = useState(periods[0]?.period ?? '');
+  const [selected, setSelected] = useState(
+    periods.find((p) => (p as unknown as { isCurrent?: boolean }).isCurrent)?.period ?? periods[0]?.period ?? '',
+  );
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfFailed, setPdfFailed] = useState(false);
   const report = periods.find((p) => p.period === selected) ?? periods[0];

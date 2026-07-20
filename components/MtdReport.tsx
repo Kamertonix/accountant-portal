@@ -55,7 +55,9 @@ function BreakdownLine({ label, value }: { label: string; value: number }) {
 /// comes straight from MtdQuarterlyReportService.build() as it already
 /// ran on the client's device.
 export default function MtdReport({ quarters }: { quarters: QuarterReport[] }) {
-  const [selected, setSelected] = useState(quarters[0]?.quarter ?? 'Q1');
+  const [selected, setSelected] = useState(
+    quarters.find((q) => (q as unknown as { isCurrent?: boolean }).isCurrent)?.quarter ?? quarters[0]?.quarter ?? 'Q1',
+  );
   const report = quarters.find((q) => q.quarter === selected) ?? quarters[0];
 
   if (!report) {

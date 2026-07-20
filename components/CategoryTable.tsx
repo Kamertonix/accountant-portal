@@ -110,6 +110,7 @@ const COLUMN_DEFS: Record<AccountantCategory, Column[]> = {
   tasks: [],
   mtd_report: [],
   vat_return: [],
+  vat_statement: [],
 };
 
 function toCsv(columns: Column[], rows: Record<string, unknown>[]): string {

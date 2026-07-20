@@ -30,6 +30,7 @@ import BusinessProfile from '@/components/BusinessProfile';
 import DeadlineCards from '@/components/DeadlineCards';
 import MtdReport from '@/components/MtdReport';
 import VatReturn from '@/components/VatReturn';
+import VatStatement from '@/components/VatStatement';
 import InvoicesCard from '@/components/InvoicesCard';
 import PeriodSelector from '@/components/PeriodSelector';
 import { usePortal } from '@/lib/portal-context';
@@ -56,6 +57,7 @@ const CATEGORY_ICONS: Record<AccountantCategory, typeof ArrowRightLeft> = {
   tasks: ListChecks,
   mtd_report: Landmark,
   vat_return: Landmark,
+  vat_statement: Landmark,
 };
 
 const VISIBLE_TABS: AccountantCategory[] = [
@@ -67,6 +69,7 @@ const VISIBLE_TABS: AccountantCategory[] = [
   'deadlines',
   'mtd_report',
   'vat_return',
+  'vat_statement',
 ];
 
 type TypeFilter = 'all' | 'Income' | 'Expense' | 'vat' | 'cis';
@@ -85,6 +88,7 @@ const CATEGORY_BLURBS: Record<AccountantCategory, string> = {
   tasks: "Client's organizer task list",
   mtd_report: "The app's own MTD quarterly report",
   vat_return: "The app's own 9-box VAT return",
+  vat_statement: 'Itemised sales/purchases behind the VAT return',
 };
 
 function ClientDetailContent() {
@@ -193,7 +197,7 @@ function ClientDetailContent() {
   const filteredTxItems = txItems && periodRange ? txItems.filter((item) => isWithinRange(item.date, periodRange)) : txItems;
   const activeSnapshotItems = (activeSnapshot?.payload.items as Record<string, unknown>[] | undefined) ?? [];
   const filteredActiveItems =
-    periodRange && activeTab !== 'self_assessment' && activeTab !== 'business_profile' && activeTab !== 'tasks' && activeTab !== 'deadlines' && activeTab !== 'mtd_report' && activeTab !== 'vat_return'
+    periodRange && activeTab !== 'self_assessment' && activeTab !== 'business_profile' && activeTab !== 'tasks' && activeTab !== 'deadlines' && activeTab !== 'mtd_report' && activeTab !== 'vat_return' && activeTab !== 'vat_statement'
       ? activeSnapshotItems.filter((item) => isWithinRange(item.date, periodRange))
       : activeSnapshotItems;
 
@@ -267,7 +271,7 @@ function ClientDetailContent() {
             </button>
           ))}
         </div>
-        {referenceSnapshot?.period_from && referenceSnapshot?.period_to && activeTab !== 'self_assessment' && activeTab !== 'business_profile' && activeTab !== 'tasks' && activeTab !== 'deadlines' && activeTab !== 'mtd_report' && activeTab !== 'vat_return' && (
+        {referenceSnapshot?.period_from && referenceSnapshot?.period_to && activeTab !== 'self_assessment' && activeTab !== 'business_profile' && activeTab !== 'tasks' && activeTab !== 'deadlines' && activeTab !== 'mtd_report' && activeTab !== 'vat_return' && activeTab !== 'vat_statement' && (
           <PeriodSelector
             periodFromIso={referenceSnapshot.period_from}
             periodToIso={referenceSnapshot.period_to}
@@ -356,24 +360,33 @@ function ClientDetailContent() {
                   box8: number;
                   box9: number;
                 };
-                statement?: {
-                  scheme: string;
-                  isFlatRate: boolean;
-                  flatRatePercent: number;
-                  totalNetSales: number;
-                  totalVatOnSales: number;
-                  totalNetPurchases: number;
-                  totalVatOnPurchases: number;
-                  entries: {
-                    date: string;
-                    description: string;
-                    type: string;
-                    netAmount: number;
-                    vatAmount: number;
-                    grossAmount: number;
-                    excludedFromReturn: boolean;
-                  }[];
-                };
+              }[]) ?? []
+            }
+            clientUserId={link.user_id}
+            clientLabel={link.client_label}
+            taxYear={currentTaxYear}
+          />
+        ) : activeTab === 'vat_statement' ? (
+          <VatStatement
+            periods={
+              (activeSnapshot.payload.periods as unknown as {
+                period: string;
+                scheme: string;
+                isFlatRate: boolean;
+                flatRatePercent: number;
+                totalNetSales: number;
+                totalVatOnSales: number;
+                totalNetPurchases: number;
+                totalVatOnPurchases: number;
+                entries: {
+                  date: string;
+                  description: string;
+                  type: string;
+                  netAmount: number;
+                  vatAmount: number;
+                  grossAmount: number;
+                  excludedFromReturn: boolean;
+                }[];
               }[]) ?? []
             }
             clientUserId={link.user_id}

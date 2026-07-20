@@ -43,6 +43,7 @@ const CATEGORY_ICONS: Record<AccountantCategory, typeof ArrowRightLeft> = {
   tasks: ListChecks,
   mtd_report: Landmark,
   vat_return: Landmark,
+  vat_statement: Landmark,
 };
 
 // Same reasoning as the client workspace page — expenses/VAT/CIS are
@@ -57,6 +58,7 @@ const VISIBLE_TABS: AccountantCategory[] = [
   'deadlines',
   'mtd_report',
   'vat_return',
+  'vat_statement',
 ];
 
 const NAV_ITEMS = [

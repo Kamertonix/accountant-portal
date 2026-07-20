@@ -356,8 +356,29 @@ function ClientDetailContent() {
                   box8: number;
                   box9: number;
                 };
+                statement?: {
+                  scheme: string;
+                  isFlatRate: boolean;
+                  flatRatePercent: number;
+                  totalNetSales: number;
+                  totalVatOnSales: number;
+                  totalNetPurchases: number;
+                  totalVatOnPurchases: number;
+                  entries: {
+                    date: string;
+                    description: string;
+                    type: string;
+                    netAmount: number;
+                    vatAmount: number;
+                    grossAmount: number;
+                    excludedFromReturn: boolean;
+                  }[];
+                };
               }[]) ?? []
             }
+            clientUserId={link.user_id}
+            clientLabel={link.client_label}
+            taxYear={currentTaxYear}
           />
         ) : activeTab === 'invoices' ? (
           <InvoicesCard

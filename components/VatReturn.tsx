@@ -1,6 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { Download, FileDown } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { exportPath, downloadBlob } from '@/lib/download';
 import Card from './Card';
 
 interface VatBoxes {
@@ -15,9 +18,31 @@ interface VatBoxes {
   box9: number;
 }
 
+interface VatEntry {
+  date: string;
+  description: string;
+  type: string;
+  netAmount: number;
+  vatAmount: number;
+  grossAmount: number;
+  excludedFromReturn: boolean;
+}
+
+interface VatStatement {
+  scheme: string;
+  isFlatRate: boolean;
+  flatRatePercent: number;
+  totalNetSales: number;
+  totalVatOnSales: number;
+  totalNetPurchases: number;
+  totalVatOnPurchases: number;
+  entries: VatEntry[];
+}
+
 interface PeriodReport {
   period: string;
   boxes: VatBoxes;
+  statement?: VatStatement;
 }
 
 function money(n: number): string {
@@ -38,26 +63,107 @@ const BOX_DEFS: { key: keyof VatBoxes; title: string; subtitle: string }[] = [
   { key: 'box9', title: 'Box 9', subtitle: 'Total value of acquisitions of goods from other EC Member States excluding VAT' },
 ];
 
-/// Mirrors the app's own VAT Return screen (vat_return_screen.dart)
-/// exactly — same period list (generated the same way, depending on
-/// the client's VAT frequency/quarter-start settings), same nine
-/// boxes, same official wording. Every number comes from
-/// TaxSummaryService.calculateVatBoxes() as it already ran on the
-/// client's device; nothing recalculated here.
-export default function VatReturn({ periods }: { periods: PeriodReport[] }) {
+function EntryCard({ entry }: { entry: VatEntry }) {
+  return (
+    <Card>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-bold text-textPrimary">{entry.description}</p>
+        {entry.excludedFromReturn && (
+          <span className="shrink-0 rounded-full bg-input px-2 py-0.5 text-[11px] font-bold text-textMuted">Not reclaimed</span>
+        )}
+      </div>
+      <p className="mt-0.5 text-xs text-textMuted">{entry.date}</p>
+      <div className="mt-2 flex gap-6">
+        <div>
+          <p className="text-[11px] font-semibold text-textMuted">Net</p>
+          <p className="text-sm font-bold text-textPrimary">{money(entry.netAmount)}</p>
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold text-textMuted">VAT</p>
+          <p className="text-sm font-bold text-accentLight">{money(entry.vatAmount)}</p>
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold text-textMuted">Gross</p>
+          <p className="text-sm font-bold text-success">{money(entry.grossAmount)}</p>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function csvForStatement(period: string, statement: VatStatement): string {
+  const lines: string[] = [];
+  lines.push('Tax Sole Trader VAT Statement');
+  lines.push(`Period,${period}`);
+  lines.push(`Scheme,${statement.scheme}`);
+  lines.push('');
+  lines.push('Date,Description,Type,Net,VAT,Gross,Excluded From Return');
+  for (const e of statement.entries) {
+    lines.push(
+      [e.date, `"${e.description.replace(/"/g, '""')}"`, e.type, e.netAmount.toFixed(2), e.vatAmount.toFixed(2), e.grossAmount.toFixed(2), e.excludedFromReturn ? 'Yes' : 'No'].join(','),
+    );
+  }
+  return lines.join('\n');
+}
+
+/// Mirrors the app's own VAT Return + VAT Statement screens together
+/// — the 9-box HMRC summary, plus the itemised sales/purchases detail
+/// behind it, plus Save (CSV) and PDF download, matching the app's
+/// own Save/Share buttons. Nothing recalculated here.
+export default function VatReturn({
+  periods,
+  clientUserId,
+  clientLabel,
+  taxYear,
+}: {
+  periods: PeriodReport[];
+  clientUserId: string;
+  clientLabel: string;
+  taxYear: string;
+}) {
   const [selected, setSelected] = useState(periods[0]?.period ?? '');
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfFailed, setPdfFailed] = useState(false);
   const report = periods.find((p) => p.period === selected) ?? periods[0];
 
   if (!report) {
     return <p className="py-8 text-center text-sm text-textMuted">No VAT return data synced.</p>;
   }
 
-  const { boxes } = report;
+  const { boxes, statement } = report;
   const payable = boxes.box3 >= boxes.box4;
+  const sales = statement?.entries.filter((e) => e.type === 'Sale') ?? [];
+  const purchases = statement?.entries.filter((e) => e.type === 'Purchase') ?? [];
+
+  function handleSaveCsv() {
+    if (!statement) return;
+    const csv = csvForStatement(report.period, statement);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    downloadBlob(blob, exportPath(clientLabel, taxYear, 'VAT Statements', `${report.period}.csv`));
+  }
+
+  async function handleDownloadPdf() {
+    setPdfBusy(true);
+    setPdfFailed(false);
+    try {
+      const sanitised = report.period
+        .replace(/[^a-zA-Z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .toLowerCase();
+      const path = `${clientUserId}/${sanitised}.pdf`;
+      const { data, error } = await supabase.storage.from('accountant-vat-statements').download(path);
+      if (error || !data) throw error ?? new Error('No file');
+      downloadBlob(data, exportPath(clientLabel, taxYear, 'VAT Statements', `${report.period}.pdf`));
+    } catch {
+      setPdfFailed(true);
+    } finally {
+      setPdfBusy(false);
+    }
+  }
 
   return (
     <div>
-      <div className="mb-4">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <label className="text-xs font-semibold text-textMuted">
           Period
           <select
@@ -72,6 +178,24 @@ export default function VatReturn({ periods }: { periods: PeriodReport[] }) {
             ))}
           </select>
         </label>
+
+        <div className="ml-auto flex gap-2 self-end">
+          <button
+            onClick={handleSaveCsv}
+            disabled={!statement || statement.entries.length === 0}
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-textSecondary transition hover:border-accentStroke hover:text-textPrimary disabled:opacity-50"
+          >
+            <FileDown size={14} /> Save CSV
+          </button>
+          <button
+            onClick={handleDownloadPdf}
+            disabled={pdfBusy || !statement || statement.entries.length === 0}
+            title={pdfFailed ? 'Not available — ask your client to sync' : 'Download PDF'}
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-textSecondary transition hover:border-accentStroke hover:text-textPrimary disabled:opacity-50"
+          >
+            <Download size={14} /> {pdfFailed ? 'Unavailable' : pdfBusy ? '…' : 'PDF'}
+          </button>
+        </div>
       </div>
 
       <Card tone="accent" className="mb-4 max-w-md">
@@ -84,7 +208,7 @@ export default function VatReturn({ periods }: { periods: PeriodReport[] }) {
         <p className={`text-2xl font-bold ${payable ? 'text-danger' : 'text-success'}`}>{money(boxes.box5)}</p>
       </Card>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
         {BOX_DEFS.map((def) => (
           <Card key={def.key}>
             <p className="text-sm font-bold text-textPrimary">{def.title}</p>
@@ -93,6 +217,37 @@ export default function VatReturn({ periods }: { periods: PeriodReport[] }) {
           </Card>
         ))}
       </div>
+
+      {statement && (
+        <>
+          <p className="mb-2 text-xs font-semibold text-textSecondary">
+            {statement.scheme}
+            {statement.isFlatRate && ` — Flat Rate ${statement.flatRatePercent.toFixed(1)}%, purchases not reclaimed`}
+          </p>
+
+          <p className="mb-2 mt-4 text-sm font-bold text-textPrimary">Sales</p>
+          {sales.length === 0 ? (
+            <p className="text-xs text-textMuted">No sales recorded for this period.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {sales.map((e, i) => (
+                <EntryCard key={i} entry={e} />
+              ))}
+            </div>
+          )}
+
+          <p className="mb-2 mt-5 text-sm font-bold text-textPrimary">Purchases</p>
+          {purchases.length === 0 ? (
+            <p className="text-xs text-textMuted">No purchases recorded for this period.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {purchases.map((e, i) => (
+                <EntryCard key={i} entry={e} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

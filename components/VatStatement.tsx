@@ -34,27 +34,29 @@ function money(n: number): string {
 
 function EntryCard({ entry }: { entry: VatEntry }) {
   return (
-    <Card>
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-bold text-textPrimary">{entry.description}</p>
-        {entry.excludedFromReturn && (
-          <span className="shrink-0 rounded-full bg-input px-2 py-0.5 text-[11px] font-bold text-textMuted">Not reclaimed</span>
-        )}
+    <Card className="flex items-center justify-between gap-4">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <p className="truncate text-sm font-bold text-textPrimary">{entry.description}</p>
+          {entry.excludedFromReturn && (
+            <span className="shrink-0 rounded-full bg-input px-2 py-0.5 text-[11px] font-bold text-textMuted">Not reclaimed</span>
+          )}
+        </div>
+        <p className="text-xs text-textMuted">{entry.date}</p>
       </div>
-      <p className="mt-0.5 text-xs text-textMuted">{entry.date}</p>
-      <div className="mt-2 flex gap-6">
-        <div>
-          <p className="text-[11px] font-semibold text-textMuted">Net</p>
-          <p className="text-sm font-bold text-textPrimary">{money(entry.netAmount)}</p>
-        </div>
-        <div>
-          <p className="text-[11px] font-semibold text-textMuted">VAT</p>
-          <p className="text-sm font-bold text-accentLight">{money(entry.vatAmount)}</p>
-        </div>
-        <div>
-          <p className="text-[11px] font-semibold text-textMuted">Gross</p>
-          <p className="text-sm font-bold text-success">{money(entry.grossAmount)}</p>
-        </div>
+      <div className="flex shrink-0 gap-5">
+        <p className="text-xs">
+          <span className="font-semibold text-textMuted">Net </span>
+          <span className="font-bold text-textPrimary">{money(entry.netAmount)}</span>
+        </p>
+        <p className="text-xs">
+          <span className="font-semibold text-textMuted">VAT </span>
+          <span className="font-bold text-accentLight">{money(entry.vatAmount)}</span>
+        </p>
+        <p className="text-xs">
+          <span className="font-semibold text-textMuted">Gross </span>
+          <span className="font-bold text-success">{money(entry.grossAmount)}</span>
+        </p>
       </div>
     </Card>
   );
@@ -140,12 +142,12 @@ export default function VatStatement({
       </Card>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <label className="text-xs font-semibold text-textMuted">
+        <label className="flex items-center gap-2 text-xs font-semibold text-textMuted">
           Period
           <select
             value={selected}
             onChange={(e) => setSelected(e.target.value)}
-            className="mt-1 block w-full max-w-xs rounded-lg border border-border bg-input px-3 py-2 text-sm font-semibold text-textPrimary outline-none focus:border-accentStroke"
+            className="rounded-lg border border-border bg-input px-3 py-2 text-sm font-semibold text-textPrimary outline-none focus:border-accentStroke"
           >
             {periods.map((p) => (
               <option key={p.period} value={p.period}>
@@ -181,16 +183,24 @@ export default function VatStatement({
 
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Card>
-          <p className="text-xs font-semibold uppercase tracking-wide text-textMuted">Net sales</p>
-          <p className="mt-1 text-lg font-bold text-textPrimary">{money(statement.totalNetSales)}</p>
-          <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-textMuted">VAT on sales</p>
-          <p className="mt-1 text-lg font-bold text-accentLight">{money(statement.totalVatOnSales)}</p>
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-textMuted">Net sales</p>
+            <p className="text-lg font-bold text-textPrimary">{money(statement.totalNetSales)}</p>
+          </div>
+          <div className="mt-2 flex items-baseline justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-textMuted">VAT on sales</p>
+            <p className="text-lg font-bold text-accentLight">{money(statement.totalVatOnSales)}</p>
+          </div>
         </Card>
         <Card>
-          <p className="text-xs font-semibold uppercase tracking-wide text-textMuted">Net purchases</p>
-          <p className="mt-1 text-lg font-bold text-textPrimary">{money(statement.totalNetPurchases)}</p>
-          <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-textMuted">VAT on purchases</p>
-          <p className="mt-1 text-lg font-bold text-accentLight">{money(statement.totalVatOnPurchases)}</p>
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-textMuted">Net purchases</p>
+            <p className="text-lg font-bold text-textPrimary">{money(statement.totalNetPurchases)}</p>
+          </div>
+          <div className="mt-2 flex items-baseline justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-textMuted">VAT on purchases</p>
+            <p className="text-lg font-bold text-accentLight">{money(statement.totalVatOnPurchases)}</p>
+          </div>
         </Card>
       </div>
 

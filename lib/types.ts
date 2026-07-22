@@ -17,6 +17,8 @@ export const ACCOUNTANT_CATEGORIES = [
   'mtd_report',
   'vat_return',
   'vat_statement',
+  'report',
+  'dashboard',
 ] as const;
 
 export type AccountantCategory = (typeof ACCOUNTANT_CATEGORIES)[number];
@@ -36,6 +38,8 @@ export const CATEGORY_LABELS: Record<AccountantCategory, string> = {
   mtd_report: 'MTD Report',
   vat_return: 'VAT Return',
   vat_statement: 'VAT Statement',
+  report: 'Report',
+  dashboard: 'Dashboard',
 };
 
 export interface AccountantLinkRow {
@@ -59,6 +63,8 @@ export interface AccountantLinkRow {
   can_view_mtd_report: boolean;
   can_view_vat_return: boolean;
   can_view_vat_statement: boolean;
+  can_view_report: boolean;
+  can_view_dashboard: boolean;
   invited_at: string;
   accepted_at: string | null;
   revoked_at: string | null;

@@ -30,6 +30,7 @@ import StatusBadge from './StatusBadge';
 import PortalFooter from './PortalFooter';
 
 const CATEGORY_ICONS: Record<AccountantCategory, typeof ArrowRightLeft> = {
+  dashboard: LayoutDashboard,
   transactions: ArrowRightLeft,
   invoices: FileText,
   expenses: Receipt,
@@ -44,12 +45,14 @@ const CATEGORY_ICONS: Record<AccountantCategory, typeof ArrowRightLeft> = {
   mtd_report: Landmark,
   vat_return: Landmark,
   vat_statement: Landmark,
+  report: LayoutGrid,
 };
 
 // Same reasoning as the client workspace page — expenses/VAT/CIS are
 // filtered views of Transactions, not separate tabs. Deadlines aren't
 // a tab at all — they're shown as cards right on Overview.
 const VISIBLE_TABS: AccountantCategory[] = [
+  'dashboard',
   'transactions',
   'invoices',
   'mileage',
@@ -137,7 +140,7 @@ export default function Sidebar() {
               }`}
             >
               <LayoutGrid size={16} />
-              Overview
+              Reports
             </button>
             {VISIBLE_TABS.filter((c) => activeClientCategories.includes(c)).map((category) => {
               const Icon = CATEGORY_ICONS[category];

@@ -51,6 +51,9 @@ function ukDate(value: unknown): string {
 // transaction shape, since the app builds them by filtering
 // transactions rather than a separate model.
 const COLUMN_DEFS: Record<AccountantCategory, Column[]> = {
+  // Rendered by its own <Dashboard /> component, never through this
+  // generic table — present only so this Record stays exhaustive.
+  dashboard: [],
   transactions: [
     { key: 'date', label: 'Date', format: ukDate },
     { key: 'type', label: 'Type', badge: true },
@@ -111,6 +114,7 @@ const COLUMN_DEFS: Record<AccountantCategory, Column[]> = {
   mtd_report: [],
   vat_return: [],
   vat_statement: [],
+  report: [],
 };
 
 function toCsv(columns: Column[], rows: Record<string, unknown>[]): string {

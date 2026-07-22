@@ -17,6 +17,8 @@ import {
   Calculator,
   UserRound,
   ListChecks,
+  LayoutGrid,
+  LayoutDashboard,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import Card from '@/components/Card';
@@ -31,6 +33,8 @@ import DeadlineCards from '@/components/DeadlineCards';
 import MtdReport from '@/components/MtdReport';
 import VatReturn from '@/components/VatReturn';
 import VatStatement from '@/components/VatStatement';
+import ReportOverview from '@/components/ReportOverview';
+import Dashboard from '@/components/Dashboard';
 import InvoicesCard from '@/components/InvoicesCard';
 import PeriodSelector from '@/components/PeriodSelector';
 import { usePortal } from '@/lib/portal-context';
@@ -44,6 +48,7 @@ import {
 } from '@/lib/types';
 
 const CATEGORY_ICONS: Record<AccountantCategory, typeof ArrowRightLeft> = {
+  dashboard: LayoutDashboard,
   transactions: ArrowRightLeft,
   invoices: FileText,
   expenses: Receipt,
@@ -58,9 +63,11 @@ const CATEGORY_ICONS: Record<AccountantCategory, typeof ArrowRightLeft> = {
   mtd_report: Landmark,
   vat_return: Landmark,
   vat_statement: Landmark,
+  report: LayoutGrid,
 };
 
 const VISIBLE_TABS: AccountantCategory[] = [
+  'dashboard',
   'transactions',
   'invoices',
   'mileage',
@@ -75,6 +82,7 @@ const VISIBLE_TABS: AccountantCategory[] = [
 type TypeFilter = 'all' | 'Income' | 'Expense' | 'vat' | 'cis';
 
 const CATEGORY_BLURBS: Record<AccountantCategory, string> = {
+  dashboard: "The app's own Business Dashboard — profit, tax estimate, mileage, VAT threshold, AI insight",
   transactions: 'Income, expenses, VAT and CIS — filterable',
   invoices: 'Issued invoices and their status',
   expenses: 'Recorded business expenses',
@@ -89,6 +97,7 @@ const CATEGORY_BLURBS: Record<AccountantCategory, string> = {
   mtd_report: "The app's own MTD quarterly report",
   vat_return: "The app's own 9-box VAT return",
   vat_statement: 'Itemised sales/purchases behind the VAT return',
+  report: "The app's own Reports screen — metrics, VAT/CIS, monthly chart",
 };
 
 function ClientDetailContent() {
@@ -197,7 +206,7 @@ function ClientDetailContent() {
   const filteredTxItems = txItems && periodRange ? txItems.filter((item) => isWithinRange(item.date, periodRange)) : txItems;
   const activeSnapshotItems = (activeSnapshot?.payload.items as Record<string, unknown>[] | undefined) ?? [];
   const filteredActiveItems =
-    periodRange && activeTab !== 'self_assessment' && activeTab !== 'business_profile' && activeTab !== 'tasks' && activeTab !== 'deadlines' && activeTab !== 'mtd_report' && activeTab !== 'vat_return' && activeTab !== 'vat_statement'
+    periodRange && activeTab !== 'self_assessment' && activeTab !== 'business_profile' && activeTab !== 'tasks' && activeTab !== 'deadlines' && activeTab !== 'mtd_report' && activeTab !== 'vat_return' && activeTab !== 'vat_statement' && activeTab !== 'dashboard'
       ? activeSnapshotItems.filter((item) => isWithinRange(item.date, periodRange))
       : activeSnapshotItems;
 
@@ -257,7 +266,7 @@ function ClientDetailContent() {
               activeTab === 'overview' ? 'bg-accent text-white' : 'border border-border bg-input text-textSecondary hover:border-accentStroke'
             }`}
           >
-            Overview
+            Reports
           </button>
           {VISIBLE_TABS.filter((c) => granted.includes(c)).map((category) => (
             <button
@@ -271,7 +280,7 @@ function ClientDetailContent() {
             </button>
           ))}
         </div>
-        {referenceSnapshot?.period_from && referenceSnapshot?.period_to && activeTab !== 'self_assessment' && activeTab !== 'business_profile' && activeTab !== 'tasks' && activeTab !== 'deadlines' && activeTab !== 'mtd_report' && activeTab !== 'vat_return' && activeTab !== 'vat_statement' && (
+        {referenceSnapshot?.period_from && referenceSnapshot?.period_to && activeTab !== 'overview' && activeTab !== 'self_assessment' && activeTab !== 'business_profile' && activeTab !== 'tasks' && activeTab !== 'deadlines' && activeTab !== 'mtd_report' && activeTab !== 'vat_return' && activeTab !== 'vat_statement' && activeTab !== 'dashboard' && (
           <PeriodSelector
             periodFromIso={referenceSnapshot.period_from}
             periodToIso={referenceSnapshot.period_to}
@@ -290,7 +299,48 @@ function ClientDetailContent() {
             <p className="mt-1 text-xs text-textMuted">{fetchError}</p>
           </Card>
         ) : activeTab === 'overview' ? (
-          <SummaryCards items={filteredTxItems} />
+          snapshots['report'] ? (
+            <ReportOverview
+              periods={
+                (snapshots['report'].payload.periods as unknown as {
+                  period: string;
+                  taxYear: string;
+                  income: number;
+                  rawBusinessExpenses: number;
+                  expenses: number;
+                  profit: number;
+                  vatAmount: number;
+                  cisSuffered: number;
+                  vatRegistered: boolean;
+                  cisRegistered: boolean;
+                  taxBeforeCis: number;
+                  taxReserve: number;
+                  transactionCount: number;
+                  invoiceCount: number;
+                  mileageMiles: number;
+                  mileageClaim: number;
+                  mileageTrips: number;
+                  vehicleNote: string;
+                  vehicleConfigured: boolean;
+                  incomeByCategory: { title: string; amount: number }[];
+                  expensesByCategory: { title: string; amount: number }[];
+                  fullReport: string;
+                }[]) ?? []
+              }
+              monthly={
+                (snapshots['report'].payload.monthly as unknown as {
+                  labels: string[];
+                  income: number[];
+                  expenses: number[];
+                }) ?? null
+              }
+              clientUserId={link.user_id}
+              clientLabel={link.client_label}
+              taxYear={currentTaxYear}
+            />
+          ) : (
+            <SummaryCards items={filteredTxItems} />
+          )
         ) : !activeSnapshot ? (
           <Card tone="warning">
             <p className="text-sm text-textSecondary">
@@ -298,6 +348,114 @@ function ClientDetailContent() {
               Accountant Access screen.
             </p>
           </Card>
+        ) : activeTab === 'dashboard' ? (
+          <Dashboard
+            payload={
+              (activeSnapshot.payload as unknown as {
+                months: {
+                  periodKey: string;
+                  periodTitle: string;
+                  periodRange: string;
+                  income: number;
+                  expenses: number;
+                  profit: number;
+                  estimatedTax: number;
+                  incomeTax: number;
+                  class2Ni: number;
+                  class4Ni: number;
+                  vatEnabled: boolean;
+                  vehicleEnabled: boolean;
+                  usingActualVehicleExpenses: boolean;
+                  mileageMiles: number;
+                  mileageClaim: number;
+                  mileageTrips: number;
+                  receiptsTotal: number;
+                  receiptsCount: number;
+                  vatEstimate: number;
+                  unpaidInvoices: number;
+                  overdueInvoices: number;
+                  paidInvoices: number;
+                  invoiceCount: number;
+                  insight: string;
+                }[];
+                quarters: {
+                  periodKey: string;
+                  periodTitle: string;
+                  periodRange: string;
+                  income: number;
+                  expenses: number;
+                  profit: number;
+                  estimatedTax: number;
+                  incomeTax: number;
+                  class2Ni: number;
+                  class4Ni: number;
+                  vatEnabled: boolean;
+                  vehicleEnabled: boolean;
+                  usingActualVehicleExpenses: boolean;
+                  mileageMiles: number;
+                  mileageClaim: number;
+                  mileageTrips: number;
+                  receiptsTotal: number;
+                  receiptsCount: number;
+                  vatEstimate: number;
+                  unpaidInvoices: number;
+                  overdueInvoices: number;
+                  paidInvoices: number;
+                  invoiceCount: number;
+                  insight: string;
+                }[];
+                taxYear: {
+                  periodKey: string;
+                  periodTitle: string;
+                  periodRange: string;
+                  income: number;
+                  expenses: number;
+                  profit: number;
+                  estimatedTax: number;
+                  incomeTax: number;
+                  class2Ni: number;
+                  class4Ni: number;
+                  vatEnabled: boolean;
+                  vehicleEnabled: boolean;
+                  usingActualVehicleExpenses: boolean;
+                  mileageMiles: number;
+                  mileageClaim: number;
+                  mileageTrips: number;
+                  receiptsTotal: number;
+                  receiptsCount: number;
+                  vatEstimate: number;
+                  unpaidInvoices: number;
+                  overdueInvoices: number;
+                  paidInvoices: number;
+                  invoiceCount: number;
+                  insight: string;
+                };
+                currentQuarterLabel: string;
+                taxBreakdown: {
+                  taxYear: string;
+                  profit: number;
+                  totalIncome: number;
+                  incomeTax: number;
+                  class2Ni: number;
+                  class4Ni: number;
+                  remainingDue: number;
+                  refundEstimate: number;
+                  payeEnabled: boolean;
+                  cisEnabled: boolean;
+                  payeSalary: number;
+                  payeTaxPaid: number;
+                  payeAlreadyPaid: number;
+                  hmrcBeforePaye: number;
+                  effectiveRate: number;
+                  riskTitle: string;
+                  riskColorHex: string;
+                  cisSuffered: number;
+                  paymentOnAccount: number;
+                };
+              }) ?? undefined
+            }
+            syncedAt={activeSnapshot.synced_at}
+          />
         ) : activeTab === 'self_assessment' ? (
           <SelfAssessmentSummary
             summary={(activeSnapshot.payload.summary as Record<string, unknown>) ?? {}}
@@ -315,8 +473,14 @@ function ClientDetailContent() {
                 description: string;
                 deadline: string;
                 daysRemaining: number;
+                canMarkDone: boolean;
+                isOverdue: boolean;
+                homeSummary: string;
+                periodText: string;
+                formattedDate: string;
               }[]) ?? []
             }
+            clientRemindersEnabled={activeSnapshot.payload.clientRemindersEnabled as boolean | undefined}
           />
         ) : activeTab === 'mtd_report' ? (
           <MtdReport

@@ -110,12 +110,12 @@ export default function VatReturn({
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <label className="text-xs font-semibold text-textMuted">
+        <label className="flex items-center gap-2 text-xs font-semibold text-textMuted">
           Period
           <select
             value={selected}
             onChange={(e) => setSelected(e.target.value)}
-            className="mt-1 block w-full max-w-xs rounded-lg border border-border bg-input px-3 py-2 text-sm font-semibold text-textPrimary outline-none focus:border-accentStroke"
+            className="rounded-lg border border-border bg-input px-3 py-2 text-sm font-semibold text-textPrimary outline-none focus:border-accentStroke"
           >
             {periods.map((p) => (
               <option key={p.period} value={p.period}>
@@ -143,22 +143,29 @@ export default function VatReturn({
         </div>
       </div>
 
-      <Card tone="accent" className="mb-4 max-w-md">
-        <p className="text-xs text-textMuted">Period</p>
-        <p className="text-lg font-bold text-textPrimary">{report.period}</p>
-        <div className="my-2 h-px bg-border" />
-        <p className="text-xs font-semibold uppercase tracking-wide text-textMuted">
-          {payable ? 'Net VAT payable' : 'Net VAT reclaimable'}
-        </p>
-        <p className={`text-2xl font-bold ${payable ? 'text-danger' : 'text-success'}`}>{money(boxes.box5)}</p>
+      <Card tone="accent" className="mb-4 max-w-lg">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs text-textMuted">Period</p>
+            <p className="text-lg font-bold text-textPrimary">{report.period}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs font-semibold uppercase tracking-wide text-textMuted">
+              {payable ? 'Net VAT payable' : 'Net VAT reclaimable'}
+            </p>
+            <p className={`text-2xl font-bold ${payable ? 'text-danger' : 'text-success'}`}>{money(boxes.box5)}</p>
+          </div>
+        </div>
       </Card>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3">
         {BOX_DEFS.map((def) => (
           <Card key={def.key}>
-            <p className="text-sm font-bold text-textPrimary">{def.title}</p>
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="text-sm font-bold text-textPrimary">{def.title}</p>
+              <p className="text-xl font-bold text-accentLight">{money(boxes[def.key])}</p>
+            </div>
             <p className="mt-1 text-xs leading-snug text-textMuted">{def.subtitle}</p>
-            <p className="mt-2 text-xl font-bold text-accentLight">{money(boxes[def.key])}</p>
           </Card>
         ))}
       </div>

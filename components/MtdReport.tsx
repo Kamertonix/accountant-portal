@@ -68,8 +68,8 @@ export default function MtdReport({ quarters }: { quarters: QuarterReport[] }) {
   const profitLabel = isLoss ? 'Loss' : 'Profit';
 
   return (
-    <div>
-      <div className="mb-4 flex gap-2">
+    <div className="mx-auto max-w-2xl">
+      <div className="mb-4 flex justify-center gap-2">
         {quarters.map((q) => (
           <button
             key={q.quarter}
@@ -83,13 +83,13 @@ export default function MtdReport({ quarters }: { quarters: QuarterReport[] }) {
         ))}
       </div>
 
-      <Card tone="accent" className="max-w-md">
-        <p className="text-base font-black text-textPrimary">{report.periodLabel}</p>
-        <div className="mt-4 flex flex-col">
+      <Card tone="accent" padded={false} className="p-8">
+        <p className="text-lg font-black text-textPrimary">{report.periodLabel}</p>
+        <div className="mt-5 flex flex-col gap-1">
           <AmountLine label="Income" value={report.income} />
           <AmountLine label="Expenses" value={report.expenses} />
         </div>
-        <div className="my-2 h-px bg-border" />
+        <div className="my-3 h-px bg-border" />
         <AmountLine
           label={profitLabel}
           value={Math.abs(report.profitLoss)}

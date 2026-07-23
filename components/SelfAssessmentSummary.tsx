@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Download } from 'lucide-react';
+import { Download, FileDown } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { exportPath, downloadBlob } from '@/lib/download';
 import Card from './Card';
@@ -48,18 +48,26 @@ function BreakRow({ title, value }: { title: string; value: string }) {
 export default function SelfAssessmentSummary({
   summary,
   syncedAt,
+  csv,
   clientUserId,
   clientLabel,
   taxYear,
 }: {
   summary: Record<string, unknown>;
   syncedAt: string;
+  csv?: string;
   clientUserId: string;
   clientLabel: string;
   taxYear: string;
 }) {
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfFailed, setPdfFailed] = useState(false);
+
+  function handleSaveCsv() {
+    if (!csv) return;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    downloadBlob(blob, exportPath(clientLabel, taxYear, 'Self Assessment', 'summary.csv'));
+  }
 
   async function handleDownloadPdf() {
     setPdfBusy(true);
@@ -101,14 +109,24 @@ export default function SelfAssessmentSummary({
             Synced {new Date(syncedAt).toLocaleString()} &mdash; the app&rsquo;s own estimate for {String(summary.taxYear ?? '')}, not a
             filed or final return.
           </p>
-          <button
-            onClick={handleDownloadPdf}
-            disabled={pdfBusy}
-            title={pdfFailed ? 'Not available yet — ask your client to sync' : 'Download PDF'}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-textSecondary transition hover:border-accentStroke hover:text-textPrimary disabled:opacity-50"
-          >
-            <Download size={13} /> {pdfFailed ? 'Unavailable' : pdfBusy ? '…' : 'Download PDF'}
-          </button>
+          <div className="flex shrink-0 gap-2">
+            {csv && (
+              <button
+                onClick={handleSaveCsv}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-textSecondary transition hover:border-accentStroke hover:text-textPrimary"
+              >
+                <FileDown size={13} /> Save CSV
+              </button>
+            )}
+            <button
+              onClick={handleDownloadPdf}
+              disabled={pdfBusy}
+              title={pdfFailed ? 'Not available yet — ask your client to sync' : 'Download PDF'}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-textSecondary transition hover:border-accentStroke hover:text-textPrimary disabled:opacity-50"
+            >
+              <Download size={13} /> {pdfFailed ? 'Unavailable' : pdfBusy ? '…' : 'Download PDF'}
+            </button>
+          </div>
         </div>
       </Card>
 

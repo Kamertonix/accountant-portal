@@ -461,6 +461,7 @@ function ClientDetailContent() {
           <SelfAssessmentSummary
             summary={(activeSnapshot.payload.summary as Record<string, unknown>) ?? {}}
             syncedAt={activeSnapshot.synced_at}
+            csv={activeSnapshot.payload.csv as string | undefined}
             clientUserId={link.user_id}
             clientLabel={link.client_label}
             taxYear={currentTaxYear}

@@ -35,6 +35,7 @@ import VatReturn from '@/components/VatReturn';
 import VatStatement from '@/components/VatStatement';
 import ReportOverview from '@/components/ReportOverview';
 import Dashboard from '@/components/Dashboard';
+import TransactionExports from '@/components/TransactionExports';
 import InvoicesCard from '@/components/InvoicesCard';
 import PeriodSelector from '@/components/PeriodSelector';
 import { usePortal } from '@/lib/portal-context';
@@ -634,6 +635,16 @@ function ClientDetailContent() {
                 </span>
               )}
             </div>
+            {activeTab === 'transactions' && (
+              <TransactionExports
+                exports={
+                  (activeSnapshot.payload as unknown as { exports?: { period: string; csv: string }[] }).exports ?? []
+                }
+                clientUserId={link.user_id}
+                clientLabel={link.client_label}
+                taxYear={currentTaxYear}
+              />
+            )}
             <CategoryTable
               category={activeTab as AccountantCategory}
               items={displayedItems}

@@ -233,50 +233,63 @@ export default function Dashboard({ payload, syncedAt }: { payload?: DashboardPa
             <p className="text-sm font-bold text-warning">Estimated tax</p>
             <p className="text-xs font-semibold text-warning">{showBreakdown ? 'Hide details ▲' : 'View details ▼'}</p>
           </div>
-          <p className="mt-1.5 text-lg font-bold text-warning">{money(data.estimatedTax)}</p>
-          <p className="mt-1 text-xs font-bold text-warning">Income Tax: {money(data.incomeTax)}</p>
-          <p className="text-xs font-bold text-warning">Class 2 NI: {money(data.class2Ni)}</p>
-          <p className="text-xs font-bold text-warning">Class 4 NI: {money(data.class4Ni)}</p>
+          <div className="mt-1.5 flex items-center justify-between">
+            <p className="text-sm font-bold text-warning">Total</p>
+            <p className="text-lg font-bold text-warning">{money(data.estimatedTax)}</p>
+          </div>
+          <div className="mt-1 flex items-center justify-between">
+            <p className="text-xs font-bold text-warning">Income Tax</p>
+            <p className="text-xs font-bold text-warning">{money(data.incomeTax)}</p>
+          </div>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold text-warning">Class 2 NI</p>
+            <p className="text-xs font-bold text-warning">{money(data.class2Ni)}</p>
+          </div>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold text-warning">Class 4 NI</p>
+            <p className="text-xs font-bold text-warning">{money(data.class4Ni)}</p>
+          </div>
         </Card>
       </button>
 
       {showBreakdown && payload.taxBreakdown && <TaxBreakdownPanel data={payload.taxBreakdown} />}
 
       <Card tone="success" className="mb-4">
-        <p className="text-sm font-bold text-textPrimary">Profit &middot; {data.periodTitle}</p>
-        <p className="mt-1 text-lg font-bold text-textPrimary">{money(data.profit)}</p>
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-bold text-textPrimary">Profit &middot; {data.periodTitle}</p>
+          <p className="text-lg font-bold text-textPrimary">{money(data.profit)}</p>
+        </div>
         <p className="mt-1 text-xs text-textSecondary">Income minus expenses</p>
       </Card>
 
       <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card>
-          <p className="text-sm font-bold text-textPrimary">💷 Income</p>
-          <p className="mt-1 text-base font-bold text-textPrimary">{money(data.income)}</p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold text-textPrimary">💷 Income</p>
+            <p className="text-base font-bold text-textPrimary">{money(data.income)}</p>
+          </div>
         </Card>
         <Card>
-          <p className="text-sm font-bold text-textPrimary">🔒 Expenses</p>
-          <p className="mt-1 text-base font-bold text-textPrimary">{money(data.expenses)}</p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold text-textPrimary">🔒 Expenses</p>
+            <p className="text-base font-bold text-textPrimary">{money(data.expenses)}</p>
+          </div>
         </Card>
       </div>
 
       {data.vehicleEnabled && (
         <Card className="mb-4">
-          <p className="text-sm font-bold text-textPrimary">🚗 Mileage claim</p>
-          <p className="mt-1 text-sm font-semibold text-textSecondary">
-            {data.mileageMiles.toFixed(1)} miles &middot; {money(data.mileageClaim)}
-          </p>
-          <p className="text-xs text-textMuted">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold text-textPrimary">🚗 Mileage claim</p>
+            <p className="text-sm font-bold text-textPrimary">{money(data.mileageClaim)}</p>
+          </div>
+          <p className="mt-1 text-xs text-textMuted">
             {data.usingActualVehicleExpenses
               ? 'Actual vehicle expenses method — mileage excluded'
-              : `${data.mileageTrips} trips in this period`}
+              : `${data.mileageMiles.toFixed(1)} miles \u00b7 ${data.mileageTrips} trips in this period`}
           </p>
         </Card>
       )}
-
-      <Card className="mb-4 text-center">
-        <p className="text-sm font-bold text-textPrimary">Current UK quarter</p>
-        <p className="mt-1 text-sm font-bold text-textPrimary">{payload.currentQuarterLabel}</p>
-      </Card>
 
       <Card className="mb-4">
         <p className="text-sm font-bold text-warning">AI Insight</p>
@@ -296,13 +309,17 @@ export default function Dashboard({ payload, syncedAt }: { payload?: DashboardPa
       <p className="mb-2 text-sm font-bold text-textPrimary">{data.vatEnabled ? 'Receipts / VAT' : 'Receipts'}</p>
       <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card>
-          <p className="text-sm font-bold text-textPrimary">Expenses &middot; {data.receiptsCount}</p>
-          <p className="mt-1 text-sm font-bold text-textPrimary">{money(data.receiptsTotal)}</p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold text-textPrimary">Expenses &middot; {data.receiptsCount}</p>
+            <p className="text-sm font-bold text-textPrimary">{money(data.receiptsTotal)}</p>
+          </div>
         </Card>
         {data.vatEnabled && (
           <Card>
-            <p className="text-sm font-bold text-textPrimary">VAT estimate</p>
-            <p className="mt-1 text-sm font-bold text-textPrimary">{money(data.vatEstimate)}</p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-bold text-textPrimary">VAT estimate</p>
+              <p className="text-sm font-bold text-textPrimary">{money(data.vatEstimate)}</p>
+            </div>
           </Card>
         )}
       </div>
@@ -310,20 +327,28 @@ export default function Dashboard({ payload, syncedAt }: { payload?: DashboardPa
       <p className="mb-2 text-sm font-bold text-textPrimary">Invoices / Income</p>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card>
-          <p className="text-sm font-bold text-textPrimary">Unpaid</p>
-          <p className="mt-1 text-sm font-bold text-textPrimary">{money(data.unpaidInvoices)}</p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold text-textPrimary">Unpaid</p>
+            <p className="text-sm font-bold text-textPrimary">{money(data.unpaidInvoices)}</p>
+          </div>
         </Card>
         <Card>
-          <p className="text-sm font-bold text-textPrimary">Overdue</p>
-          <p className="mt-1 text-sm font-bold text-textPrimary">{money(data.overdueInvoices)}</p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold text-textPrimary">Overdue</p>
+            <p className="text-sm font-bold text-textPrimary">{money(data.overdueInvoices)}</p>
+          </div>
         </Card>
         <Card>
-          <p className="text-sm font-bold text-textPrimary">Invoices</p>
-          <p className="mt-1 text-sm font-bold text-textPrimary">{data.invoiceCount}</p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold text-textPrimary">Invoices</p>
+            <p className="text-sm font-bold text-textPrimary">{data.invoiceCount}</p>
+          </div>
         </Card>
         <Card>
-          <p className="text-sm font-bold text-textPrimary">Paid this period</p>
-          <p className="mt-1 text-sm font-bold text-textPrimary">{money(data.paidInvoices)}</p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold text-textPrimary">Paid this period</p>
+            <p className="text-sm font-bold text-textPrimary">{money(data.paidInvoices)}</p>
+          </div>
         </Card>
       </div>
     </div>

@@ -1,7 +1,9 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Download } from 'lucide-react';
+import { Download, FileDown } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { supabase } from '@/lib/supabase';
 import { exportPath, downloadBlob } from '@/lib/download';
 import { CATEGORY_LABELS, type AccountantCategory } from '@/lib/types';
@@ -231,6 +233,107 @@ export default function CategoryTable({
     downloadBlob(blob, exportPath(clientLabel, taxYear, CATEGORY_LABELS[category], filename));
   }
 
+  // Client-side PDF, built from the exact same already-synced/filtered
+  // rows the CSV export uses above — same underlying figures, just a
+  // different file format, same as the CSV button. Unlike Report/VAT
+  // Return/VAT Statement (which fetch an actual PDF the app itself
+  // rendered for a small, fixed set of periods), Transactions has no
+  // fixed period here — the accountant can search/filter to any
+  // subset, exactly like the app's own "Create Export" date picker —
+  // so there's no fixed file to pre-generate and sync; the PDF is
+  // built for whatever's on screen right now.
+  //
+  // Styled to match the app's own Report / VAT Return PDFs
+  // (ReportVatExportService.vatReportStylePdf): soft-blue rounded
+  // header box, navy title, muted grey subtitle, tinted table header,
+  // and the same 3-colour blue/yellow/red footer stripe. Colours taken
+  // directly from that file's own constants, not eyeballed.
+  function handleExportPdf() {
+    const csvColumns = columns.filter((c) => !c.pdfButton);
+    const total = sorted.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+
+    const navy: [number, number, number] = [10, 26, 46];
+    const muted: [number, number, number] = [77, 107, 143];
+    const softBlue: [number, number, number] = [237, 245, 255];
+    const sectionBlue: [number, number, number] = [230, 245, 255];
+    const rowBlue: [number, number, number] = [245, 251, 255];
+    const borderBlue: [number, number, number] = [191, 214, 242];
+    const footerBlue: [number, number, number] = [107, 166, 232];
+    const accentYellow: [number, number, number] = [240, 199, 115];
+    const accentRed: [number, number, number] = [230, 107, 107];
+
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const left = 38;
+    const right = 557;
+    const width = right - left;
+
+    // Header box
+    doc.setFillColor(...softBlue);
+    doc.roundedRect(left, 40, width, 92, 12, 12, 'F');
+    doc.setTextColor(...navy);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(17);
+    doc.text(`${CATEGORY_LABELS[category]} Export`, left + 16, 68);
+    doc.setTextColor(...muted);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(`${clientLabel} \u00b7 Tax year ${taxYear}`, left + 16, 86);
+    doc.text(`Generated ${new Date().toLocaleString('en-GB')} \u00b7 ${sorted.length} record${sorted.length === 1 ? '' : 's'}`, left + 16, 100);
+    doc.text('Prepared by the Tax Sole Trader Accountant Portal \u2014 read-only mirror of the app\u2019s own records.', left + 16, 118);
+
+    // Metric box (single total, right-aligned in the header band)
+    doc.setFillColor(...sectionBlue);
+    doc.roundedRect(right - 150, 52, 134, 46, 8, 8, 'F');
+    doc.setDrawColor(...borderBlue);
+    doc.roundedRect(right - 150, 52, 134, 46, 8, 8, 'S');
+    doc.setTextColor(...muted);
+    doc.setFontSize(7.5);
+    doc.text('TOTAL', right - 140, 68);
+    doc.setTextColor(...navy);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text(money(total), right - 140, 88);
+
+    autoTable(doc, {
+      startY: 150,
+      head: [csvColumns.map((c) => c.label)],
+      body: sorted.map((row) => csvColumns.map((c) => (c.format ? c.format(row[c.key]) : String(row[c.key] ?? '\u2014')))),
+      styles: { fontSize: 8, cellPadding: 5, textColor: navy, lineColor: borderBlue, lineWidth: 0.5 },
+      headStyles: { fillColor: sectionBlue, textColor: navy, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: rowBlue },
+      margin: { left, right: 595 - right, bottom: 56 },
+      didDrawPage: () => {
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const stripeY = pageHeight - 36;
+        const third = width / 3;
+        doc.setFillColor(...footerBlue);
+        doc.rect(left, stripeY, third, 3, 'F');
+        doc.setFillColor(...accentYellow);
+        doc.rect(left + third, stripeY, third, 3, 'F');
+        doc.setFillColor(...accentRed);
+        doc.rect(left + third * 2, stripeY, third, 3, 'F');
+
+        doc.setTextColor(...muted);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.2);
+        doc.text(
+          `\u00a9 ${new Date().getFullYear()} Tax Sole Trader\u2122. Built for UK Sole Traders. VAT \u2022 CIS \u2022 Self Assessment.`,
+          297,
+          pageHeight - 20,
+          { align: 'center' },
+        );
+        doc.setFontSize(7);
+        doc.text('Proprietary document template. Generated by the Accountant Portal, not the app itself.', 297, pageHeight - 10, {
+          align: 'center',
+        });
+      },
+    });
+
+    const blob = doc.output('blob');
+    const filename = `${category}.pdf`.toLowerCase();
+    downloadBlob(blob, exportPath(clientLabel, taxYear, CATEGORY_LABELS[category], filename));
+  }
+
   if (items.length === 0) {
     return <p className="py-8 text-center text-sm text-textMuted">No records in this category for the synced period.</p>;
   }
@@ -247,12 +350,22 @@ export default function CategoryTable({
           placeholder="Search…"
           className="w-64 rounded-lg border border-border bg-input px-3 py-2 text-sm text-textPrimary outline-none focus:border-accentStroke"
         />
-        <button
-          onClick={handleExport}
-          className="rounded-lg border border-border px-3 py-2 text-sm font-semibold text-textSecondary transition hover:border-accentStroke hover:text-textPrimary"
-        >
-          Export CSV
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            className="rounded-lg border border-border px-3 py-2 text-sm font-semibold text-textSecondary transition hover:border-accentStroke hover:text-textPrimary"
+          >
+            Export CSV
+          </button>
+          {category === 'transactions' && (
+            <button
+              onClick={handleExportPdf}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-semibold text-textSecondary transition hover:border-accentStroke hover:text-textPrimary"
+            >
+              <FileDown size={14} /> Export PDF
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-border">

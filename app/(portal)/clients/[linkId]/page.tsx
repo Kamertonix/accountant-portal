@@ -461,6 +461,9 @@ function ClientDetailContent() {
           <SelfAssessmentSummary
             summary={(activeSnapshot.payload.summary as Record<string, unknown>) ?? {}}
             syncedAt={activeSnapshot.synced_at}
+            clientUserId={link.user_id}
+            clientLabel={link.client_label}
+            taxYear={currentTaxYear}
           />
         ) : activeTab === 'business_profile' ? (
           <BusinessProfile profile={(activeSnapshot.payload.profile as Record<string, unknown>) ?? {}} syncedAt={activeSnapshot.synced_at} />
@@ -495,6 +498,7 @@ function ClientDetailContent() {
                 profitLoss: number;
                 transactionCount: number;
                 invoiceCount: number;
+                csv: string;
                 breakdown: {
                   invoiceIncome: number;
                   transactionIncome: number;
@@ -508,6 +512,9 @@ function ClientDetailContent() {
                 };
               }[]) ?? []
             }
+            clientUserId={link.user_id}
+            clientLabel={link.client_label}
+            taxYear={currentTaxYear}
           />
         ) : activeTab === 'vat_return' ? (
           <VatReturn

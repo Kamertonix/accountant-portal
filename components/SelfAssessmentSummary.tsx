@@ -1,3 +1,9 @@
+'use client';
+
+import { useState } from 'react';
+import { Download } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { exportPath, downloadBlob } from '@/lib/download';
 import Card from './Card';
 
 function money(n: unknown): string {
@@ -39,7 +45,37 @@ function BreakRow({ title, value }: { title: string; value: string }) {
 /// the full HMRC Tax Breakdown (same conditional rows, same order),
 /// readiness and records panels. Every number and every visibility
 /// condition matches the app exactly — nothing recalculated here.
-export default function SelfAssessmentSummary({ summary, syncedAt }: { summary: Record<string, unknown>; syncedAt: string }) {
+export default function SelfAssessmentSummary({
+  summary,
+  syncedAt,
+  clientUserId,
+  clientLabel,
+  taxYear,
+}: {
+  summary: Record<string, unknown>;
+  syncedAt: string;
+  clientUserId: string;
+  clientLabel: string;
+  taxYear: string;
+}) {
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfFailed, setPdfFailed] = useState(false);
+
+  async function handleDownloadPdf() {
+    setPdfBusy(true);
+    setPdfFailed(false);
+    try {
+      const path = `${clientUserId}/summary.pdf`;
+      const { data, error } = await supabase.storage.from('accountant-self-assessment').download(path);
+      if (error || !data) throw error ?? new Error('No file');
+      downloadBlob(data, exportPath(clientLabel, taxYear, 'Self Assessment', 'summary.pdf'));
+    } catch {
+      setPdfFailed(true);
+    } finally {
+      setPdfBusy(false);
+    }
+  }
+
   const num = (key: string) => Number(summary[key]) || 0;
   const bool = (key: string) => summary[key] === true;
 
@@ -60,10 +96,20 @@ export default function SelfAssessmentSummary({ summary, syncedAt }: { summary: 
   return (
     <div>
       <Card className="mb-4">
-        <p className="text-xs text-textMuted">
-          Synced {new Date(syncedAt).toLocaleString()} &mdash; the app&rsquo;s own estimate for {String(summary.taxYear ?? '')}, not a filed
-          or final return.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-textMuted">
+            Synced {new Date(syncedAt).toLocaleString()} &mdash; the app&rsquo;s own estimate for {String(summary.taxYear ?? '')}, not a
+            filed or final return.
+          </p>
+          <button
+            onClick={handleDownloadPdf}
+            disabled={pdfBusy}
+            title={pdfFailed ? 'Not available yet — ask your client to sync' : 'Download PDF'}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-textSecondary transition hover:border-accentStroke hover:text-textPrimary disabled:opacity-50"
+          >
+            <Download size={13} /> {pdfFailed ? 'Unavailable' : pdfBusy ? '…' : 'Download PDF'}
+          </button>
+        </div>
       </Card>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

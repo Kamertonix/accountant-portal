@@ -1,6 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { Download, FileDown } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { exportPath, downloadBlob } from '@/lib/download';
 import Card from './Card';
 
 interface QuarterReport {
@@ -12,6 +15,7 @@ interface QuarterReport {
   profitLoss: number;
   transactionCount: number;
   invoiceCount: number;
+  csv: string;
   breakdown: {
     invoiceIncome: number;
     transactionIncome: number;
@@ -54,10 +58,22 @@ function BreakdownLine({ label, value }: { label: string; value: number }) {
 /// footer note. Nothing here is calculated in the portal; every number
 /// comes straight from MtdQuarterlyReportService.build() as it already
 /// ran on the client's device.
-export default function MtdReport({ quarters }: { quarters: QuarterReport[] }) {
+export default function MtdReport({
+  quarters,
+  clientUserId,
+  clientLabel,
+  taxYear,
+}: {
+  quarters: QuarterReport[];
+  clientUserId: string;
+  clientLabel: string;
+  taxYear: string;
+}) {
   const [selected, setSelected] = useState(
     quarters.find((q) => (q as unknown as { isCurrent?: boolean }).isCurrent)?.quarter ?? quarters[0]?.quarter ?? 'Q1',
   );
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfFailed, setPdfFailed] = useState(false);
   const report = quarters.find((q) => q.quarter === selected) ?? quarters[0];
 
   if (!report) {
@@ -67,9 +83,29 @@ export default function MtdReport({ quarters }: { quarters: QuarterReport[] }) {
   const isLoss = report.profitLoss < 0;
   const profitLabel = isLoss ? 'Loss' : 'Profit';
 
+  function handleDownloadCsv() {
+    const blob = new Blob([report.csv], { type: 'text/csv;charset=utf-8;' });
+    downloadBlob(blob, exportPath(clientLabel, taxYear, 'MTD Report', `${report.quarter}.csv`));
+  }
+
+  async function handleDownloadPdf() {
+    setPdfBusy(true);
+    setPdfFailed(false);
+    try {
+      const path = `${clientUserId}/${report.quarter.toLowerCase()}.pdf`;
+      const { data, error } = await supabase.storage.from('accountant-mtd-reports').download(path);
+      if (error || !data) throw error ?? new Error('No file');
+      downloadBlob(data, exportPath(clientLabel, taxYear, 'MTD Report', `${report.quarter}.pdf`));
+    } catch {
+      setPdfFailed(true);
+    } finally {
+      setPdfBusy(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-2xl">
-      <div className="mb-4 flex justify-center gap-2">
+      <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
         {quarters.map((q) => (
           <button
             key={q.quarter}
@@ -81,6 +117,20 @@ export default function MtdReport({ quarters }: { quarters: QuarterReport[] }) {
             {q.quarter}
           </button>
         ))}
+        <button
+          onClick={handleDownloadCsv}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-semibold text-textSecondary transition hover:border-accentStroke hover:text-textPrimary"
+        >
+          <FileDown size={14} /> CSV
+        </button>
+        <button
+          onClick={handleDownloadPdf}
+          disabled={pdfBusy}
+          title={pdfFailed ? 'Not available yet — ask your client to sync' : 'Download PDF'}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-semibold text-textSecondary transition hover:border-accentStroke hover:text-textPrimary disabled:opacity-50"
+        >
+          <Download size={14} /> {pdfFailed ? 'Unavailable' : pdfBusy ? '…' : 'PDF'}
+        </button>
       </div>
 
       <Card tone="accent" padded={false} className="p-8">
